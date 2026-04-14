@@ -1,0 +1,3671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estimation App</title>
+  <meta name="description" content="Free anonymous story point estimation tool for agile teams" />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='5' y='55' width='22' height='40' rx='5' fill='%236366f1'/><rect x='39' y='30' width='22' height='65' rx='5' fill='%238b5cf6'/><rect x='73' y='5' width='22' height='90' rx='5' fill='%23a78bfa'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Custom Properties ─────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #09090b;
+      --surface:     #18181b;
+      --elevated:    #27272a;
+      --muted:       #3f3f46;
+      --border:      #3f3f46;
+      --text:        #fafafa;
+      --text-2:      #a1a1aa;
+      --text-3:      #71717a;
+      --accent:      #6366f1;
+      --accent-h:    #4f46e5;
+      --accent-l:    #818cf8;
+      --green:       #22c55e;
+      --yellow:      #eab308;
+      --red:         #ef4444;
+      --blue:        #3b82f6;
+      --r:           6px;
+      --r-lg:        10px;
+      --r-xl:        14px;
+      --shadow:      0 4px 12px rgba(0,0,0,.5);
+      --shadow-lg:   0 12px 32px rgba(0,0,0,.6);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Utility ───────────────────────────────────────────────── */
+    .hidden { display: none !important; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+    input, textarea, select, button { font-family: inherit; }
+
+    /* ── Buttons ───────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 0 18px; height: 40px; border-radius: var(--r); font-size: 14px;
+      font-weight: 500; cursor: pointer; border: 1px solid transparent;
+      transition: background .15s, border-color .15s, color .15s, opacity .15s;
+      white-space: nowrap; text-decoration: none;
+    }
+    .btn:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-ghost { background: transparent; color: var(--text-2); border-color: var(--border); }
+    .btn-ghost:hover { background: var(--elevated); color: var(--text); }
+    .btn-danger { background: transparent; color: var(--red); border-color: var(--red); }
+    .btn-danger:hover { background: rgba(239,68,68,.12); }
+    .btn-success { background: var(--green); color: #000; }
+    .btn-success:hover { filter: brightness(1.1); }
+    .btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+    .btn-lg { height: 48px; padding: 0 28px; font-size: 16px; font-weight: 600; }
+    .btn-block { width: 100%; }
+
+    /* ── Forms ─────────────────────────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .label { font-size: 13px; font-weight: 500; color: var(--text-2); }
+    .label span { color: var(--red); margin-left: 2px; }
+
+    .input {
+      padding: 0 14px; height: 42px; border-radius: var(--r);
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); font-size: 14px; width: 100%;
+      transition: border-color .15s;
+      outline: none;
+    }
+    .input:focus { border-color: var(--accent); }
+    .input.input-lg { height: 48px; font-size: 16px; }
+    .input::placeholder { color: var(--text-3); }
+
+    textarea.input { height: auto; padding: 12px 14px; resize: vertical; min-height: 80px; }
+
+    .help-text { font-size: 12px; color: var(--text-3); }
+    .error-text { font-size: 12px; color: var(--red); }
+
+    /* ── Screens ───────────────────────────────────────────────── */
+    .screen { min-height: 100vh; display: flex; flex-direction: column; }
+    #screen-room {
+      position: fixed; inset: 0;
+      min-height: unset;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    /* ── Navbar ────────────────────────────────────────────────── */
+    .navbar {
+      padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .navbar-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 16px; font-weight: 700; color: var(--text); text-decoration: none;
+    }
+    .brand-icon {
+      width: 32px; height: 32px; border-radius: var(--r);
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      display: flex; align-items: center; justify-content: center; font-size: 17px;
+    }
+    .navbar-meta { display: flex; align-items: center; gap: 10px; }
+
+    /* ── Setup Screen ──────────────────────────────────────────── */
+    .setup-screen {
+      flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px;
+    }
+    .setup-card {
+      max-width: 680px; width: 100%; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--r-xl); padding: 40px;
+    }
+    .setup-badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px;
+      background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3);
+      border-radius: 100px; font-size: 12px; font-weight: 600; color: var(--red);
+      margin-bottom: 20px; letter-spacing: .3px;
+    }
+    .setup-title { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+    .setup-subtitle { color: var(--text-2); margin-bottom: 28px; line-height: 1.7; }
+    .setup-steps { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+    .setup-step {
+      display: flex; gap: 14px; align-items: flex-start; background: var(--elevated);
+      border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px 18px;
+    }
+    .step-num {
+      min-width: 26px; height: 26px; border-radius: 50%; background: var(--accent);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; margin-top: 1px;
+    }
+    .step-content { min-width: 0; }
+    .step-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .step-body { color: var(--text-2); font-size: 13px; line-height: 1.6; }
+    .step-body code {
+      background: var(--muted); padding: 2px 6px; border-radius: 4px;
+      font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 12px;
+    }
+    .setup-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* ── Landing Screen ────────────────────────────────────────── */
+    .landing-body {
+      flex: 1; display: flex; align-items: center; justify-content: center; padding: 60px 24px;
+    }
+    .landing-inner { max-width: 480px; width: 100%; text-align: center; }
+    .landing-badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px;
+      background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.3);
+      border-radius: 100px; font-size: 12px; font-weight: 600; color: var(--accent-l);
+      margin-bottom: 24px; letter-spacing: .3px;
+    }
+    .landing-title { font-size: 40px; font-weight: 800; line-height: 1.15; margin-bottom: 16px; }
+    .landing-title .highlight {
+      background: linear-gradient(135deg, var(--accent-l), #c084fc);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .landing-sub { font-size: 16px; color: var(--text-2); margin-bottom: 40px; line-height: 1.7; }
+    .landing-actions { display: flex; flex-direction: column; gap: 12px; }
+    .landing-divider {
+      display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 13px;
+    }
+    .landing-divider::before, .landing-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .landing-features {
+      display: flex; gap: 24px; justify-content: center; margin-top: 48px;
+      flex-wrap: wrap; padding-top: 32px; border-top: 1px solid var(--border);
+    }
+    .feat { display: flex; align-items: center; gap: 8px; color: var(--text-3); font-size: 13px; }
+    .feat-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+    /* ── Form Screen (Create / Join) ───────────────────────────── */
+    .form-screen-body {
+      flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px;
+    }
+    .form-card {
+      max-width: 480px; width: 100%; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--r-xl); padding: 36px;
+    }
+    .form-back {
+      display: inline-flex; align-items: center; gap: 6px; color: var(--text-3);
+      font-size: 13px; cursor: pointer; margin-bottom: 28px;
+      background: none; border: none; transition: color .15s;
+    }
+    .form-back:hover { color: var(--text); }
+    .form-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .form-sub { color: var(--text-2); font-size: 14px; margin-bottom: 28px; }
+    .form-body { display: flex; flex-direction: column; gap: 18px; }
+    .form-footer { margin-top: 24px; }
+    .form-note { margin-top: 14px; text-align: center; color: var(--text-3); font-size: 13px; }
+
+    /* Scale presets */
+    .scale-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+    .scale-preset {
+      padding: 5px 12px; border-radius: var(--r); font-size: 13px;
+      font-weight: 500; cursor: pointer; border: 1px solid var(--border);
+      background: var(--elevated); color: var(--text-2); transition: all .15s;
+    }
+    .scale-preset:hover { border-color: var(--accent); color: var(--text); }
+    .scale-preset.active { border-color: var(--accent); background: rgba(99,102,241,.15); color: var(--accent-l); }
+
+    /* ── Room Screen ───────────────────────────────────────────── */
+    /* (base styles combined with .screen override above) */
+    .room-header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 14px 24px; display: flex; align-items: center;
+      justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    .room-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .room-header-right { display: flex; align-items: center; gap: 8px; }
+
+    .room-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .room-code-badge {
+      display: flex; align-items: center; gap: 6px; padding: 4px 10px;
+      background: var(--elevated); border: 1px solid var(--border);
+      border-radius: var(--r); font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+      font-size: 13px; font-weight: 600; letter-spacing: 2px; color: var(--accent-l);
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .room-code-badge:hover { border-color: var(--accent); background: rgba(99,102,241,.1); }
+    .room-code-badge .copy-icon { font-size: 11px; color: var(--text-3); }
+
+    .status-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+      border-radius: 100px; font-size: 12px; font-weight: 600; letter-spacing: .3px;
+    }
+    .status-chip.waiting { background: rgba(234,179,8,.1); color: var(--yellow); border: 1px solid rgba(234,179,8,.3); }
+    .status-chip.voting  { background: rgba(99,102,241,.1); color: var(--accent-l); border: 1px solid rgba(99,102,241,.3); }
+    .status-chip.revealed{ background: rgba(34,197,94,.1); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+    /* ── Room Body ─────────────────────────────────────────────── */
+    .room-body {
+      flex: 1; min-height: 0; display: grid; overflow: hidden;
+      grid-template-columns: 1fr 300px;
+      grid-template-rows: 1fr;
+    }
+
+    .room-main {
+      overflow-y: auto; padding: 28px; display: flex; flex-direction: column; gap: 24px;
+      min-height: 0; flex: 1;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: var(--muted) transparent;
+    }
+    .room-main::-webkit-scrollbar { width: 6px; }
+    .room-main::-webkit-scrollbar-track { background: transparent; }
+    .room-main::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+    .room-main::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+    .room-sidebar {
+      background: var(--surface); border-left: 1px solid var(--border);
+      overflow: hidden; display: flex; flex-direction: column; min-height: 0;
+    }
+
+    /* ── Top bar: stacked story title + mod controls + vote cards ── */
+    .room-topbar { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+      padding: 10px 28px 12px; background: var(--bg); border-bottom: 1px solid var(--border); }
+    .room-topbar-row1 { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .room-topbar-story {
+      flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+    }
+    .story-panel-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+
+    .story-title-display {
+      font-size: 18px; font-weight: 600; color: var(--text); line-height: 1.5;
+      min-height: 28px; word-break: break-word;
+    }
+    .story-title-display.empty { color: var(--text-3); font-weight: 400; font-style: italic; }
+
+    .story-edit-form { display: flex; flex-direction: column; gap: 10px; }
+
+    /* Voting Cards */
+    .vote-section { display: flex; flex-direction: column; }
+    .vote-section-label {
+      font-size: 13px; font-weight: 600; color: var(--text-2);
+      margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .vote-section-label .you-voted {
+      font-size: 12px; font-weight: 500; padding: 2px 8px;
+      background: rgba(34,197,94,.12); color: var(--green);
+      border-radius: 100px; border: 1px solid rgba(34,197,94,.3);
+    }
+    .vote-cards-grid {
+      display: flex; flex-wrap: wrap; gap: 10px;
+    }
+    .vote-card {
+      min-width: 54px; height: 76px; padding: 0 8px;
+      border-radius: var(--r-lg); border: 2px solid var(--border);
+      background: var(--surface); color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700;
+      cursor: pointer; transition: all .15s ease;
+      user-select: none; position: relative;
+    }
+    .vote-card:hover {
+      border-color: var(--accent); background: rgba(99,102,241,.08);
+      transform: translateY(-3px); box-shadow: 0 6px 16px rgba(99,102,241,.25);
+    }
+    .vote-card.selected {
+      border-color: var(--accent); background: rgba(99,102,241,.2);
+      transform: translateY(-3px); color: var(--accent-l);
+      box-shadow: 0 6px 20px rgba(99,102,241,.35);
+    }
+    .vote-card:disabled, .vote-card.disabled {
+      opacity: .4; cursor: not-allowed; transform: none !important; box-shadow: none !important;
+    }
+
+    /* Results Panel */
+    .results-section { display: flex; flex-direction: column; gap: 20px; }
+    .results-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .results-title { font-size: 16px; font-weight: 700; }
+    .results-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+    .stat { display: flex; flex-direction: column; }
+    .stat-value { font-size: 24px; font-weight: 800; }
+    .stat-value.consensus { color: var(--green); }
+    .stat-value.no-consensus { color: var(--yellow); }
+    .stat-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .8px; color: var(--text-3); }
+
+    .results-votes { display: flex; flex-wrap: wrap; gap: 10px; }
+    .result-vote-card {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .result-card-chip {
+      min-width: 54px; height: 76px; padding: 0 8px;
+      border-radius: var(--r-lg); display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800; border: 2px solid;
+      animation: flipIn .4s ease forwards;
+    }
+    @keyframes flipIn {
+      from { transform: rotateY(90deg) scale(0.8); opacity: 0; }
+      to   { transform: rotateY(0deg) scale(1); opacity: 1; }
+    }
+    .result-card-chip.color-0 { background: rgba(99,102,241,.15); border-color: rgba(99,102,241,.5); color: var(--accent-l); }
+    .result-card-chip.color-1 { background: rgba(236,72,153,.15); border-color: rgba(236,72,153,.5); color: #f472b6; }
+    .result-card-chip.color-2 { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.5); color: var(--green); }
+    .result-card-chip.color-3 { background: rgba(234,179,8,.15); border-color: rgba(234,179,8,.5); color: var(--yellow); }
+    .result-card-chip.color-4 { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.5); color: var(--blue); }
+    .result-card-chip.color-5 { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.5); color: var(--red); }
+    .result-card-chip.color-6 { background: rgba(249,115,22,.15); border-color: rgba(249,115,22,.5); color: #fb923c; }
+    .result-name { font-size: 12px; color: var(--text-2); font-weight: 500; text-align: center;
+      max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .result-you { color: var(--accent-l); }
+
+    .distribution-bar { display: flex; flex-direction: column; gap: 6px; }
+    .dist-row { display: flex; align-items: center; gap: 10px; }
+    .dist-label { width: 28px; text-align: right; font-size: 13px; font-weight: 600; color: var(--text-2); }
+    .dist-track { flex: 1; height: 6px; background: var(--elevated); border-radius: 3px; overflow: hidden; }
+    .dist-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .5s ease; }
+    .dist-count { width: 24px; font-size: 12px; color: var(--text-3); }
+
+    .consensus-banner {
+      background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.25);
+      border-radius: var(--r-lg); padding: 14px 18px;
+      display: flex; align-items: center; gap: 12px;
+      font-size: 14px; font-weight: 500; color: var(--green);
+    }
+    .no-consensus-banner {
+      background: rgba(234,179,8,.08); border: 1px solid rgba(234,179,8,.25);
+      border-radius: var(--r-lg); padding: 14px 18px;
+      display: flex; align-items: center; gap: 12px;
+      font-size: 14px; font-weight: 500; color: var(--yellow);
+    }
+
+    /* Mod Controls bar */
+    .mod-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 10px 14px; background: rgba(99,102,241,.06);
+      border: 1px solid rgba(99,102,241,.2); border-radius: var(--r-lg);
+    }
+    .mod-bar-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .8px; color: var(--accent-l); margin-right: 4px; }
+    .mod-scale-select {
+      font-size: 12px; font-weight: 600; background: var(--elevated);
+      border: 1px solid var(--border); border-radius: var(--r); color: var(--text-2);
+      padding: 4px 8px; cursor: pointer; outline: none;
+    }
+    .mod-scale-select:hover { border-color: var(--accent); }
+
+    /* ── Sidebar: Participants ──────────────────────────────────── */
+    .sidebar-header {
+      padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; background: var(--surface); z-index: 2;
+    }
+    .sidebar-title { font-size: 13px; font-weight: 600; color: var(--text-2);
+      text-transform: uppercase; letter-spacing: .8px; }
+    .participant-count {
+      background: var(--elevated); border-radius: 100px; padding: 2px 8px;
+      font-size: 12px; font-weight: 600; color: var(--text-2);
+    }
+    .progress-bar-wrap {
+      padding: 12px 20px 8px; border-bottom: 1px solid var(--border-muted);
+    }
+    .progress-label { font-size: 12px; color: var(--text-3); margin-bottom: 6px; }
+    .progress-bar { height: 4px; background: var(--elevated); border-radius: 2px; }
+    .progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .4s; }
+    .participants-list { padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+    .participant-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      border-radius: var(--r); transition: background .12s;
+    }
+    .participant-row:hover { background: var(--elevated); }
+    .participant-avatar {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+    }
+    .participant-info { flex: 1; min-width: 0; }
+    .participant-name {
+      font-size: 13px; font-weight: 500; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .participant-you { color: var(--accent-l); }
+    .participant-mod { color: var(--yellow); }
+    .participant-role { font-size: 11px; color: var(--text-3); }
+    .vote-status {
+      display: flex; align-items: center; justify-content: center;
+      min-width: 28px; height: 28px;
+    }
+    .voted-check { font-size: 14px; color: var(--green); }
+    .not-voted { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .revealed-vote {
+      min-width: 36px; height: 28px; border-radius: var(--r); font-size: 13px;
+      font-weight: 700; display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border);
+    }
+    .no-vote-text { font-size: 11px; color: var(--text-3); }
+    .participant-remove-btn {
+      opacity: 0; transition: opacity .12s; background: none; border: none;
+      cursor: pointer; color: var(--text-3); font-size: 18px; line-height: 1;
+      padding: 2px 6px; border-radius: var(--r); flex-shrink: 0;
+    }
+    .participant-remove-btn:hover { color: #f87171; background: rgba(248,113,113,.12); }
+    .participant-row:hover .participant-remove-btn { opacity: 1; }
+
+    .sidebar-waiting {
+      padding: 24px 20px; text-align: center; color: var(--text-3); font-size: 13px;
+    }
+
+    /* ── Toast ─────────────────────────────────────────────────── */
+    .toast-container {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      z-index: 1000; display: flex; flex-direction: column; gap: 8px; align-items: center;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 10px 18px; border-radius: var(--r-lg);
+      background: var(--elevated); border: 1px solid var(--border);
+      color: var(--text); font-size: 13px; font-weight: 500;
+      box-shadow: var(--shadow); pointer-events: auto;
+      animation: toastIn .25s ease, toastOut .3s ease 2.2s forwards;
+    }
+    @keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes toastOut { from { opacity:1; } to { opacity:0; } }
+    .toast.success { border-color: rgba(34,197,94,.4); color: var(--green); }
+    .toast.error   { border-color: rgba(239,68,68,.4);  color: var(--red); }
+
+    /* ── Modal ─────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 24px; backdrop-filter: blur(4px);
+    }
+    .modal-overlay.hidden { display: none !important; }
+    .modal-card {
+      max-width: 440px; width: 100%; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--r-xl); padding: 32px;
+    }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .modal-sub { color: var(--text-2); font-size: 14px; margin-bottom: 24px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── Jira points modal ─────────────────────────────────────── */
+    .jira-points-meta {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      margin-bottom: 14px;
+    }
+    .jira-points-meta-item {
+      border: 1px solid var(--border); border-radius: var(--r);
+      background: var(--elevated); padding: 8px 10px;
+    }
+    .jira-points-meta-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: .7px;
+      color: var(--text-3); font-weight: 700;
+    }
+    .jira-points-meta-value {
+      margin-top: 2px; font-size: 13px; font-weight: 700; color: var(--text);
+    }
+    .jira-points-actions {
+      display: flex; gap: 8px; align-items: center; margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .jira-points-hint {
+      margin-top: 8px; font-size: 12px; color: var(--text-3); line-height: 1.5;
+    }
+
+    /* ── Responsive ────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .room-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+        overflow: hidden;
+      }
+      .room-main { overflow-y: auto; padding: 12px 16px; }
+      .room-topbar {
+        padding: 8px 12px 10px; gap: 6px;
+        /* Cap topbar height on mobile so it never pushes room-body off screen */
+        max-height: 46dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .room-topbar-row1 { gap: 8px; flex-wrap: wrap; }
+      .room-topbar-story { flex: 1; min-width: 0; }
+      /* Vote cards: horizontal scroll instead of vertical wrapping — saves screen space */
+      .vote-cards-grid {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 6px;
+        scrollbar-width: none;
+      }
+      .vote-cards-grid::-webkit-scrollbar { display: none; }
+      .vote-card { min-width: 48px; height: 64px; font-size: 16px; flex-shrink: 0; }
+      .room-sidebar {
+        border-left: none; border-top: 1px solid var(--border);
+        max-height: 220px;
+      }
+      .room-header { padding: 10px 14px; }
+      .landing-title { font-size: 30px; }
+      .jira-card-scroll { max-height: min(300px, 35vh); }
+      .mod-bar { padding: 8px 10px; gap: 6px; }
+    }
+    @media (max-width: 480px) {
+      .form-card { padding: 24px 20px; }
+      .setup-card { padding: 28px 20px; }
+      .room-topbar { max-height: 42dvh; }
+      .vote-card { min-width: 44px; height: 58px; font-size: 15px; }
+      .jira-card-scroll { max-height: min(220px, 30vh); }
+    }
+
+    /* ── Avatar colours (cycle through 8) ──────────────────────── */
+    .av-0 { background: #6366f1; }
+    .av-1 { background: #ec4899; }
+    .av-2 { background: #10b981; }
+    .av-3 { background: #f59e0b; }
+    .av-4 { background: #3b82f6; }
+    .av-5 { background: #ef4444; }
+    .av-6 { background: #8b5cf6; }
+    .av-7 { background: #06b6d4; }
+
+    /* ── Story inline input ─────────────────────────────────────── */
+    .story-inline-input {
+      flex: 1; min-width: 0; background: transparent; border: 1px solid transparent;
+      border-radius: var(--r); padding: 6px 10px; font-size: 16px; font-weight: 600;
+      color: var(--text); outline: none; transition: border-color .15s, background .15s;
+      font-family: inherit; line-height: 1.4;
+    }
+    .story-inline-input::placeholder { color: var(--text-3); font-weight: 400; font-style: italic; font-size: 15px; }
+    .story-inline-input:not([readonly]):hover { border-color: var(--border); background: var(--elevated); }
+    .story-inline-input:not([readonly]):focus { border-color: var(--accent); background: var(--elevated); }
+    .story-inline-input[readonly] { cursor: default; }
+
+    /* ── Jira panel ──────────────────────────────────────────────── */
+    .jira-url-row { margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+    .jira-panel { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface); }
+    .jira-panel-bar {
+      padding: 10px 14px; background: var(--elevated);
+      display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border);
+    }
+    .jira-ticket-id {
+      font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+      font-size: 13px; font-weight: 700; color: var(--accent-l);
+      background: rgba(99,102,241,.12); padding: 2px 8px; border-radius: 4px;
+    }
+    .jira-panel-spacer { flex: 1; }
+    /* Ticket card */
+    .jira-card-body { padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 4px; }
+    .jira-card-top { display: flex; align-items: flex-start; gap: 10px; }
+    .jira-card-type-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+    .jira-card-heading { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+    .jira-card-title-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+    .jira-card-summary { font-size: 14px; font-weight: 700; color: var(--text-1); line-height: 1.4; }
+    .jira-card-key { font-size: 12px; color: var(--text-3); font-family: 'SF Mono','Fira Code',Consolas,monospace; flex-shrink: 0; }
+    .jira-card-meta-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 0; }
+    .jira-meta-inline-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-3); }
+    .jira-meta-inline-sep { color: var(--border); }
+    .jira-meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: .7px; color: var(--text-3); font-weight: 600; }
+    .jira-meta-value { font-size: 13px; color: var(--text-2); font-weight: 500; display: flex; align-items: center; gap: 5px; }
+    .jira-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .jira-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+    .jira-badge-status { background: rgba(99,102,241,.18); color: var(--accent-l); }
+    .jira-badge-type { background: rgba(255,255,255,.07); color: var(--text-2); }
+    .jira-badge-priority-high   { background: rgba(239,68,68,.12);  color: #f87171; }
+    .jira-badge-priority-medium { background: rgba(251,191,36,.12); color: #fbbf24; }
+    .jira-badge-priority-low    { background: rgba(134,239,172,.12); color: #86efac; }
+    .jira-card-desc-wrap { padding: 0 16px 12px; }
+    .jira-card-desc-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: .7px; font-weight: 600; margin-bottom: 6px; }
+    .jira-card-desc { font-size: 13px; color: var(--text-2); line-height: 1.65; padding: 12px 14px; background: var(--elevated); border-radius: var(--r); border: 1px solid var(--border); }
+    /* Scrollable description + images — always-visible persistent scrollbar */
+    .jira-card-scroll {
+      overflow-y: auto;
+      /* min(520px, 45vh): on a 768px-tall screen → 346px; on 1080px → 486px; never more than 520px */
+      max-height: min(520px, 45vh);
+      padding: 0 16px 14px;
+      display: flex; flex-direction: column; gap: 10px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: var(--muted) var(--elevated);
+    }
+    /* Defining ::-webkit-scrollbar disables macOS overlay scrollbar → always visible */
+    .jira-card-scroll::-webkit-scrollbar { width: 6px; }
+    .jira-card-scroll::-webkit-scrollbar-track { background: var(--elevated); border-radius: 3px; }
+    .jira-card-scroll::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+    .jira-card-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+    /* ADF rendered content */
+    .jira-card-desc p { margin: 0 0 8px; }
+    .jira-card-desc p:last-child { margin-bottom: 0; }
+    .jira-card-desc h1,.jira-card-desc h2,.jira-card-desc h3,.jira-card-desc h4,.jira-card-desc h5,.jira-card-desc h6 { margin: 12px 0 4px; font-weight: 700; color: var(--text-1); line-height: 1.3; }
+    .jira-card-desc h1 { font-size: 16px; } .jira-card-desc h2 { font-size: 14px; } .jira-card-desc h3 { font-size: 13px; }
+    .jira-card-desc h4,.jira-card-desc h5,.jira-card-desc h6 { font-size: 12px; }
+    .jira-card-desc ul,.jira-card-desc ol { margin: 4px 0 8px 20px; padding: 0; }
+    .jira-card-desc li { margin-bottom: 3px; }
+    .jira-card-desc ul { list-style: disc; } .jira-card-desc ol { list-style: decimal; }
+    .jira-card-desc blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding: 6px 12px; color: var(--text-3); background: rgba(99,102,241,.06); border-radius: 0 var(--r) var(--r) 0; }
+    .jira-card-desc code { font-family: 'SF Mono','Fira Code',Consolas,monospace; font-size: .85em; background: rgba(255,255,255,.1); padding: 1px 5px; border-radius: 3px; }
+    .jira-card-desc pre { font-family: 'SF Mono','Fira Code',Consolas,monospace; font-size: 12px; background: #1a1a2e; color: #e2e8f0; padding: 12px 14px; border-radius: var(--r); overflow-x: auto; margin: 8px 0; white-space: pre; }
+    .jira-card-desc pre code { background: none; padding: 0; font-size: inherit; }
+    .jira-card-desc a { color: var(--accent-l); text-decoration: underline; text-underline-offset: 2px; }
+    .jira-card-desc a:hover { opacity: .8; }
+    .jira-card-desc hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+    .jira-card-desc table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12px; }
+    .jira-card-desc th,.jira-card-desc td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+    .jira-card-desc th { background: rgba(255,255,255,.06); font-weight: 600; color: var(--text-1); }
+    .jira-adf-mention { display: inline; background: rgba(99,102,241,.15); color: var(--accent-l); border-radius: 3px; padding: 0 4px; font-size: .9em; }
+    .jira-adf-panel { padding: 10px 14px; border-radius: var(--r); margin: 8px 0; border-left: 3px solid var(--border); background: rgba(255,255,255,.04); }
+    .jira-adf-panel-info  { border-color: #60a5fa; background: rgba(96,165,250,.07); }
+    .jira-adf-panel-note  { border-color: #fbbf24; background: rgba(251,191,36,.07); }
+    .jira-adf-panel-warning { border-color: #f87171; background: rgba(248,113,113,.07); }
+    .jira-adf-panel-success { border-color: #4ade80; background: rgba(74,222,128,.07); }
+    .jira-adf-panel-error   { border-color: #f87171; background: rgba(248,113,113,.1); }
+    .jira-adf-card-link { display: inline-block; background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: var(--r); padding: 2px 8px; font-size: 12px; color: var(--accent-l); text-decoration: none; }
+    .jira-adf-media { margin: 8px 0; padding: 0; border: none; background: none; }
+    .jira-adf-media-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+    .jira-adf-img { max-width: 100%; height: auto; border-radius: 6px; display: block; }
+    .jira-adf-media-unavail { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: rgba(255,255,255,.04); border: 1px dashed var(--border); border-radius: var(--r); font-size: 12px; color: var(--text-3); }
+    .jira-attachments-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .jira-attach-thumb { width: 96px; height: 72px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); display: block; background: var(--bg); cursor: zoom-in; transition: opacity .15s; }
+    .jira-attach-thumb:hover { opacity: .85; }
+    .jira-attachments-grid a { flex-shrink: 0; }
+
+    /* ── Poll panel ──────────────────────────────────────────────── */
+    /* Poll section fills all available room-main height when active */
+    .room-main { flex: 1; min-height: 0; }
+    .poll-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); overflow: hidden;
+      display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .poll-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); gap: 10px; flex-shrink: 0; }
+    .poll-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .poll-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; padding: 2px 7px; border-radius: 999px; background: rgba(251,191,36,.15); color: #fbbf24; border: 1px solid rgba(251,191,36,.3); flex-shrink: 0; }
+    .poll-question { font-size: 14px; font-weight: 700; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .poll-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;
+      flex: 1; overflow-y: auto; min-height: 0; }
+    .poll-footer { flex-shrink: 0; }
+    .poll-option-btn {
+      width: 100%; text-align: left; padding: 10px 14px; border-radius: var(--r-lg);
+      border: 2px solid var(--border); background: var(--elevated);
+      color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: border-color .15s, background .15s; position: relative; overflow: hidden;
+    }
+    .poll-option-btn:hover:not(:disabled) { border-color: var(--accent); background: rgba(99,102,241,.07); }
+    .poll-option-btn.selected { border-color: var(--accent); background: rgba(99,102,241,.18); color: var(--accent-l); font-weight: 600; }
+    .poll-option-btn:disabled { cursor: default; }
+    .poll-option-bar { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(99,102,241,.12); border-radius: var(--r-lg); pointer-events: none; transition: width .4s; }
+    .poll-option-content { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .poll-option-pct { font-size: 12px; font-weight: 700; color: var(--accent-l); flex-shrink: 0; }
+    .poll-option-count { font-size: 11px; color: var(--text-3); flex-shrink: 0; }
+    .poll-footer { padding: 8px 16px 12px; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 12px; flex-shrink: 0; }
+    .poll-footer-spacer { flex: 1; }
+    .poll-progress { font-size: 12px; font-weight: 700; cursor: default; }
+    .poll-progress.all-voted { color: var(--green); }
+    /* Host voter breakdown */
+    .poll-voter-breakdown { border-top: 1px solid var(--border); padding: 10px 16px 14px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+    .poll-voter-breakdown-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-3); margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+    .poll-breakdown-toggle { margin-left: auto; background: none; border: 1px solid var(--border); border-radius: var(--r); padding: 2px 8px; font-size: 11px; font-weight: 600; color: var(--text-3); cursor: pointer; transition: color .15s, border-color .15s; }
+    .poll-breakdown-toggle:hover { color: var(--text-1); border-color: var(--text-3); }
+    .poll-voter-rows.hidden-breakdown { display: none; }
+    .poll-voter-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .poll-voter-name { flex: 1; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .poll-voter-answer { font-size: 12px; font-weight: 600; color: var(--accent-l); background: rgba(99,102,241,.15); border-radius: var(--r); padding: 2px 7px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .poll-voter-pending { font-size: 12px; color: var(--text-3); font-style: italic; }
+    /* Poll creation modal */
+    .poll-modal-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.60); align-items: center; justify-content: center; }
+    .poll-modal-overlay.open { display: flex; }
+    .poll-modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 28px; width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 18px; }
+    .poll-modal-title { font-size: 17px; font-weight: 700; color: var(--text-1); }
+    .poll-options-list { display: flex; flex-direction: column; gap: 8px; }
+    .poll-option-input-row { display: flex; gap: 8px; align-items: center; }
+    .poll-option-remove { background: none; border: none; color: var(--text-3); font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .poll-option-remove:hover { color: var(--red); }
+    /* Poll type toggle (single / multi) */
+    .poll-type-toggle { display: flex; gap: 6px; }
+    .poll-type-btn { flex: 1; padding: 7px 12px; border-radius: var(--r); border: 1.5px solid var(--border); background: var(--elevated); color: var(--text-2); font-size: 12px; font-weight: 600; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+    .poll-type-btn.active { border-color: var(--accent); background: rgba(99,102,241,.18); color: var(--accent-l); }
+    /* Multi-select check indicator */
+    .poll-option-check { width: 16px; height: 16px; border-radius: 4px; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-right: 4px; transition: border-color .15s, background .15s; }
+    .poll-option-btn.selected .poll-option-check { border-color: var(--accent); background: var(--accent); }
+    .poll-option-check::after { content: ''; display: none; width: 4px; height: 7px; border: 2px solid #fff; border-top: none; border-left: none; transform: rotate(45deg) translateY(-1px); }
+    .poll-option-btn.selected .poll-option-check::after { display: block; }
+    /* Submit / Re-use buttons */
+    .poll-submit-btn { margin: 0 16px 12px; }
+    .poll-reuse-row { display: flex; align-items: center; gap: 8px; padding: 8px 0 2px; border-top: 1px solid var(--border); margin-top: 2px; }
+    .poll-reuse-label { font-size: 11px; color: var(--text-3); flex: 1; }
+    /* Poll items in history */
+    .history-item.poll-item .history-item-header { gap: 8px; }
+    .history-poll-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; padding: 2px 6px; border-radius: 999px; background: rgba(251,191,36,.15); color: #fbbf24; border: 1px solid rgba(251,191,36,.3); flex-shrink: 0; }
+    .history-poll-question { font-size: 13px; font-weight: 600; color: var(--text-1); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-poll-results { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+    .history-poll-opt { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-2); }
+    .history-poll-bar-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .history-poll-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s; }
+    .history-poll-pct { font-size: 11px; color: var(--text-3); width: 30px; text-align: right; flex-shrink: 0; }
+    /* Voter breakdown inside history items */
+    .history-item .poll-voter-breakdown { border-top: 1px solid var(--border); margin-top: 4px; padding: 6px 0 0; flex-shrink: unset; }
+    .history-item .poll-voter-breakdown-title { font-size: 10px; }
+    .history-item .poll-voter-rows { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+
+    /* Lightbox */
+    .lightbox { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.85); align-items: center; justify-content: center; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+    .lightbox-close { position: absolute; top: 20px; right: 24px; font-size: 28px; color: #fff; cursor: pointer; line-height: 1; background: none; border: none; opacity: .8; }
+    .lightbox-close:hover { opacity: 1; }
+    .jira-card-desc details summary { cursor: pointer; font-weight: 600; color: var(--text-2); padding: 4px 0; }
+    .jira-connect-prompt { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .jira-connect-title { font-size: 13px; font-weight: 500; color: var(--text-1); }
+    .jira-connect-hint { font-size: 11px; color: var(--text-3); line-height: 1.5; }
+    .jira-connect-fields { display: flex; flex-direction: column; gap: 8px; }
+    .jira-connect-row { display: flex; gap: 8px; align-items: center; }
+    .jira-loading { padding: 20px; text-align: center; color: var(--text-3); font-size: 13px; }
+    .jira-error-msg { padding: 10px 14px; display: flex; align-items: center; gap: 8px; color: #f87171; font-size: 12px; background: rgba(248,113,113,.08); border-top: 1px solid rgba(248,113,113,.15); }
+
+    /* ── Sidebar tabs ────────────────────────────────────────────── */
+    .sidebar-tabs {
+      display: flex; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--surface); z-index: 2; flex-shrink: 0;
+    }
+    .sidebar-tab {
+      flex: 1; padding: 11px 8px; text-align: center;
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px;
+      color: var(--text-3); cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+    }
+    .sidebar-tab.active { color: var(--accent-l); border-bottom-color: var(--accent); }
+    .sidebar-tab:hover:not(.active) { color: var(--text-2); }
+    .sidebar-pane { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+    .sidebar-pane.active { display: flex; }
+
+    /* ── History panel ───────────────────────────────────────────── */
+    .history-list { display: flex; flex-direction: column; overflow-y: auto; flex: 1; }
+    .history-empty { padding: 28px 20px; text-align: center; color: var(--text-3); font-size: 13px; }
+    .history-item {
+      padding: 12px 16px; cursor: default;
+      border-bottom: 1px solid rgba(63,63,70,.4); transition: background .12s;
+    }
+    .history-item:hover { background: var(--elevated); }
+    .history-item:last-child { border-bottom: none; }
+    .history-item-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; gap: 8px; }
+    .history-item-story {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1;
+    }
+    .history-item-point {
+      font-size: 14px; font-weight: 800; color: var(--accent-l); flex-shrink: 0;
+      background: rgba(99,102,241,.1); padding: 1px 8px; border-radius: 4px;
+    }
+    .history-item-point.consensus { color: var(--green); background: rgba(34,197,94,.1); }
+    .history-item-meta { font-size: 11px; color: var(--text-3); display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+    .history-votes-row { display: flex; gap: 4px; flex-wrap: wrap; }
+    .history-vote-chip {
+      font-size: 11px; font-weight: 600; padding: 2px 6px;
+      border-radius: 4px; background: var(--elevated); border: 1px solid var(--border); color: var(--text-2);
+    }
+    /* History item action buttons — mod-only, visible on hover */
+    .history-item-actions {
+      display: flex; gap: 6px; margin-top: 8px; opacity: 0;
+      transition: opacity .15s;
+    }
+    .history-item:hover .history-item-actions { opacity: 1; }
+    .history-action-btn {
+      font-size: 11px; font-weight: 600; padding: 3px 9px;
+      border-radius: var(--r); border: 1px solid var(--border);
+      background: var(--elevated); color: var(--text-2);
+      cursor: pointer; transition: border-color .15s, color .15s, background .15s;
+      white-space: nowrap;
+    }
+    .history-action-btn:hover { border-color: var(--accent); color: var(--accent-l); background: rgba(99,102,241,.1); }
+
+    /* ── Auto-reveal toggle ──────────────────────────────────────── */
+    .auto-reveal-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600; color: var(--text-3);
+      cursor: pointer; padding: 4px 10px; border-radius: var(--r);
+      border: 1px solid var(--border); background: transparent;
+      transition: all .15s; white-space: nowrap;
+    }
+    .auto-reveal-btn:hover { border-color: var(--green); color: var(--text); }
+    .auto-reveal-btn.active { border-color: var(--green); color: var(--green); background: rgba(34,197,94,.08); }
+    .auto-reveal-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+    /* ── Rejoin-as-host banner ───────────────────────────────────── */
+    .rejoin-banner {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 14px 20px; margin-bottom: 20px;
+      background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.35);
+      border-radius: var(--r-xl);
+    }
+    .rejoin-banner-icon { font-size: 22px; flex-shrink: 0; }
+    .rejoin-banner-text { flex: 1; min-width: 0; }
+    .rejoin-banner-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .rejoin-banner-sub { font-size: 12px; color: var(--text-2); }
+    .rejoin-banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ── Transfer Host modal ─────────────────────────────────────── */
+    .transfer-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; max-height: 260px; overflow-y: auto; }
+    .transfer-option {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border-radius: var(--r-lg); border: 1.5px solid var(--border);
+      background: var(--elevated); cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .transfer-option:hover { border-color: var(--accent); background: rgba(99,102,241,.08); }
+    .transfer-option.selected { border-color: var(--accent); background: rgba(99,102,241,.15); }
+    .transfer-option-name { font-size: 13px; font-weight: 600; flex: 1; }
+    .transfer-option-role { font-size: 11px; color: var(--text-3); }
+
+    /* ── participants-list scrollable ────────────────────────────── */
+    .participants-list { overflow-y: auto; flex: 1; }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     TOAST CONTAINER
+═════════════════════════════════════════════════════════ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ════════════════════════════════════════════════════════
+     SCREEN: SETUP REQUIRED
+═════════════════════════════════════════════════════════ -->
+<div id="screen-setup" class="screen hidden">
+  <nav class="navbar">
+    <a class="navbar-brand" href="#">
+      <div class="brand-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 16" fill="white" style="width:55%;height:55%"><rect x="0" y="10" width="5" height="6" rx="1"/><rect x="7.5" y="5" width="5" height="11" rx="1"/><rect x="15" y="0" width="5" height="16" rx="1"/></svg></div>
+      Estimation App
+    </a>
+  </nav>
+  <div class="setup-screen">
+    <div class="setup-card">
+      <div class="setup-badge">⚠ Configuration Required</div>
+      <div class="setup-title">Connect Firebase to get started</div>
+      <div class="setup-subtitle">
+        Estimation App uses <strong>Firebase Realtime Database</strong> to sync votes across your team in real time.
+        Setup takes under 5 minutes and is free for small teams.
+      </div>
+      <div class="setup-steps">
+        <div class="setup-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Create a Firebase project</div>
+            <div class="step-body">
+              Go to <strong>console.firebase.google.com</strong>, click <em>Add project</em> and follow the prompts.
+            </div>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Enable Realtime Database</div>
+            <div class="step-body">
+              In your project, click <em>Build → Realtime Database → Create database</em>. Choose <em>Start in test mode</em> (you can tighten rules later).
+            </div>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Copy your Web app config</div>
+            <div class="step-body">
+              Go to <em>Project Settings → Your apps → Add app → Web</em>. Copy the <code>firebaseConfig</code> object.
+            </div>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Paste config into this file</div>
+            <div class="step-body">
+              Open <code>backlog-refinement/index.html</code> and find the <code>FIREBASE_CONFIG</code> section near the bottom.
+              Replace the placeholder values with your config. Save &amp; deploy.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="setup-actions">
+        <a class="btn btn-primary" href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer">
+          Open Firebase Console →
+        </a>
+        <button class="btn btn-ghost" id="setupDemoBtn">Try Demo Mode (single device)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     SCREEN: LANDING
+═════════════════════════════════════════════════════════ -->
+<div id="screen-landing" class="screen hidden">
+  <nav class="navbar">
+    <a class="navbar-brand" href="#">
+      <div class="brand-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 16" fill="white" style="width:55%;height:55%"><rect x="0" y="10" width="5" height="6" rx="1"/><rect x="7.5" y="5" width="5" height="11" rx="1"/><rect x="15" y="0" width="5" height="16" rx="1"/></svg></div>
+      Estimation App
+    </a>
+  </nav>
+  <div class="landing-body">
+    <div class="landing-inner">
+      <div class="landing-badge">✦ Free · No login required</div>
+      <h1 class="landing-title">Estimate stories<br><span class="highlight">as a team</span></h1>
+      <p class="landing-sub">
+        Anonymous story point voting for agile teams.<br>
+        Create a session, share the link — everyone estimates simultaneously.
+      </p>
+
+      <!-- Rejoin-as-host banner: shown by JS when a saved session is detected -->
+      <div class="rejoin-banner hidden" id="rejoinBanner">
+        <div class="rejoin-banner-icon">⚡</div>
+        <div class="rejoin-banner-text">
+          <div class="rejoin-banner-title" id="rejoinBannerTitle">Rejoin your session</div>
+          <div class="rejoin-banner-sub" id="rejoinBannerSub">You were facilitating a session. Tap to rejoin as host.</div>
+        </div>
+        <div class="rejoin-banner-actions">
+          <button class="btn btn-primary btn-sm" id="rejoinBtn">Rejoin as host</button>
+          <button class="btn btn-ghost btn-sm" id="rejoinDismissBtn">Dismiss</button>
+        </div>
+      </div>
+
+      <div class="landing-actions">
+        <button class="btn btn-primary btn-lg btn-block" id="landingCreateBtn">
+          Host a session
+        </button>
+        <div class="landing-divider">or</div>
+        <button class="btn btn-ghost btn-lg btn-block" id="landingJoinBtn">
+          Join a session with a code
+        </button>
+      </div>
+      <div class="landing-features">
+        <div class="feat"><div class="feat-dot"></div>Blind voting</div>
+        <div class="feat"><div class="feat-dot"></div>Custom scales</div>
+        <div class="feat"><div class="feat-dot"></div>Real-time sync</div>
+        <div class="feat"><div class="feat-dot"></div>Vote analytics</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     SCREEN: CREATE SESSION
+═════════════════════════════════════════════════════════ -->
+<div id="screen-create" class="screen hidden">
+  <nav class="navbar">
+    <a class="navbar-brand" href="#">
+      <div class="brand-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 16" fill="white" style="width:55%;height:55%"><rect x="0" y="10" width="5" height="6" rx="1"/><rect x="7.5" y="5" width="5" height="11" rx="1"/><rect x="15" y="0" width="5" height="16" rx="1"/></svg></div>
+      Estimation App
+    </a>
+  </nav>
+  <div class="form-screen-body">
+    <div class="form-card">
+      <button class="form-back" id="createBackBtn">← Back</button>
+      <div class="form-title">Create a session</div>
+      <div class="form-sub">Set up your estimation session. Share the room code when it's ready.</div>
+      <div class="form-body">
+        <div class="field">
+          <label class="label" for="createName">Your name <span>*</span></label>
+          <input class="input" id="createName" type="text" placeholder="e.g. Alice" maxlength="32" autocomplete="off" />
+          <span class="error-text hidden" id="createNameErr">Please enter your name.</span>
+        </div>
+        <div class="field">
+          <label class="label" for="createSession">Session name</label>
+          <input class="input" id="createSession" type="text" placeholder="e.g. Sprint 47 Refinement" maxlength="60" />
+        </div>
+        <div class="field">
+          <label class="label">Voting scale <span>*</span></label>
+          <div class="scale-presets" id="scalePresets">
+            <button class="scale-preset active" data-scale="storypoints">Story Points</button>
+            <button class="scale-preset" data-scale="timebox">Time Box</button>
+            <button class="scale-preset" data-scale="fibonacci">Fibonacci</button>
+            <button class="scale-preset" data-scale="modified">Modified Fib</button>
+            <button class="scale-preset" data-scale="tshirt">T-Shirt</button>
+            <button class="scale-preset" data-scale="powers2">Powers of 2</button>
+            <button class="scale-preset" data-scale="custom">Custom</button>
+          </div>
+        </div>
+        <div class="field" id="customScaleField" style="display:none">
+          <label class="label" for="customScaleInput">Custom values <span>*</span></label>
+          <input class="input" id="customScaleInput" type="text" placeholder="1, 2, 4, 8, ?, ☕" maxlength="200" />
+          <span class="help-text">Comma-separated values. Example: <code>1, 2, 3, 5, 8, 13, ?, ☕</code></span>
+          <span class="error-text hidden" id="customScaleErr">Enter at least 2 values.</span>
+        </div>
+        <div class="field">
+          <label class="label">Scale preview</label>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;" id="scalePreview"></div>
+        </div>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="modSpectate" style="width:16px;height:16px;accent-color:var(--accent);" />
+            <span style="font-size:14px;">I'm facilitating only (spectator — won't vote)</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-primary btn-lg btn-block" id="createSubmitBtn">Create session →</button>
+        <div class="form-note" id="createError" style="color:var(--red);display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     SCREEN: JOIN SESSION
+═════════════════════════════════════════════════════════ -->
+<div id="screen-join" class="screen hidden">
+  <nav class="navbar">
+    <a class="navbar-brand" href="#">
+      <div class="brand-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 16" fill="white" style="width:55%;height:55%"><rect x="0" y="10" width="5" height="6" rx="1"/><rect x="7.5" y="5" width="5" height="11" rx="1"/><rect x="15" y="0" width="5" height="16" rx="1"/></svg></div>
+      Estimation App
+    </a>
+  </nav>
+  <div class="form-screen-body">
+    <div class="form-card">
+      <button class="form-back" id="joinBackBtn">← Back</button>
+      <div class="form-title">Join a session</div>
+      <div class="form-sub">Enter the room code shared by your facilitator.</div>
+      <div class="form-body">
+        <div class="field">
+          <label class="label" for="joinCode">Room code <span>*</span></label>
+          <input class="input input-lg" id="joinCode" type="text" placeholder="e.g. XK9Z4M"
+            maxlength="6" autocomplete="off" style="text-transform:uppercase;letter-spacing:3px;font-weight:700;" />
+          <span class="error-text hidden" id="joinCodeErr">Please enter the 6-character room code.</span>
+        </div>
+        <div class="field">
+          <label class="label" for="joinName">Your name <span>*</span></label>
+          <input class="input" id="joinName" type="text" placeholder="e.g. Bob" maxlength="32" autocomplete="off" />
+          <span class="error-text hidden" id="joinNameErr">Please enter your name.</span>
+        </div>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="joinSpectate" style="width:16px;height:16px;accent-color:var(--accent);" />
+            <span style="font-size:14px;">Join as spectator (observe only)</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-primary btn-lg btn-block" id="joinSubmitBtn">Join session →</button>
+        <div class="form-note" id="joinError" style="color:var(--red);display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     SCREEN: ROOM (main poker table)
+═════════════════════════════════════════════════════════ -->
+<div id="screen-room" class="screen hidden">
+  <!-- Room Header -->
+  <header class="room-header">
+    <div class="room-header-left">
+      <a class="navbar-brand" href="#" id="roomLogoBack" style="flex-shrink:0;">
+        <div class="brand-icon" style="width:28px;height:28px;font-size:14px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 16" fill="white" style="width:55%;height:55%"><rect x="0" y="10" width="5" height="6" rx="1"/><rect x="7.5" y="5" width="5" height="11" rx="1"/><rect x="15" y="0" width="5" height="16" rx="1"/></svg></div>
+      </a>
+      <div class="room-name" id="roomSessionName">Refinement Session</div>
+      <div id="roomStatusChip" class="status-chip waiting">
+        <div class="status-dot"></div>
+        <span id="roomStatusText">Waiting</span>
+      </div>
+    </div>
+    <div class="room-header-right">
+      <button class="room-code-badge" id="copyRoomCodeBtn" title="Click to copy link">
+        <span id="roomCodeDisplay">------</span>
+        <span class="copy-icon">⎘</span>
+      </button>
+      <button class="btn btn-ghost btn-sm" id="leaveRoomBtn">Leave</button>
+    </div>
+  </header>
+
+  <!-- Topbar: always-visible story + controls (outside scroll area) -->
+  <div class="room-topbar">
+    <!-- Row 1: Current Story label + title input + mod controls -->
+    <div class="room-topbar-row1">
+      <div class="room-topbar-story">
+        <span class="story-panel-label">Current Story:</span>
+        <input class="story-inline-input" id="storyTitleInput" type="text"
+          placeholder="Waiting for facilitator to set the story…" maxlength="200" readonly />
+      </div>
+      <!-- Facilitator controls (mod-only, inline) -->
+      <div class="mod-bar hidden" id="modBar">
+        <span class="mod-bar-label">Facilitator</span>
+        <select class="mod-scale-select" id="modScaleSelect" title="Change voting scale">
+          <option value="storypoints">Story Points</option>
+          <option value="timebox">Time Box</option>
+          <option value="fibonacci">Fibonacci</option>
+          <option value="modified">Modified Fib</option>
+          <option value="tshirt">T-Shirt</option>
+          <option value="powers2">Powers of 2</option>
+        </select>
+        <button class="auto-reveal-btn active" id="autoRevealBtn" title="Toggle auto-reveal when all voted">
+          <span class="auto-reveal-dot"></span> Auto-reveal
+        </button>
+        <button class="btn btn-ghost btn-sm hidden" id="startVotingBtn">▶ Start Voting</button>
+        <button class="btn btn-success btn-sm hidden" id="revealBtn">👁 Reveal votes</button>
+        <button class="btn btn-ghost btn-sm hidden" id="cancelVotingBtn" title="Cancel this round and go back to waiting">✕ Cancel</button>
+        <button class="btn btn-ghost btn-sm hidden" id="resetBtn">↺ Next story</button>
+        <button class="btn btn-ghost btn-sm hidden" id="reEstimateBtn">↻ Re-estimate</button>
+        <button class="btn btn-primary btn-sm hidden" id="updateJiraPointsBtn">Update Jira points</button>
+        <button class="btn btn-ghost btn-sm" id="createPollBtn" title="Create a quick poll">&#128202; Poll</button>
+        <button class="btn btn-ghost btn-sm" id="transferHostBtn" title="Hand off facilitator role to someone else">&#8646; Transfer host</button>
+      </div>
+    </div>
+    <!-- Jira URL row (mod-only, shown below title) -->
+    <div id="jiraUrlRow" class="jira-url-row hidden">
+      <input class="input" id="jiraUrlInput" type="text"
+        placeholder="Paste Jira ticket URL…" maxlength="500"
+        style="font-size:13px;height:36px;" />
+    </div>
+    <!-- Vote cards row -->
+    <section class="vote-section" id="voteSection">
+      <div class="vote-section-label">
+        <span id="voteSectionLabel">Cast your vote</span>
+        <span class="you-voted hidden" id="youVotedBadge">✓ You voted</span>
+      </div>
+      <div class="vote-cards-grid" id="voteCardsGrid"></div>
+    </section>
+  </div>
+
+  <!-- Room Body -->
+  <div class="room-body">
+    <!-- Main column -->
+    <main class="room-main">
+      <!-- Poll Section -->
+      <section class="poll-section hidden" id="pollSection"></section>
+
+      <!-- Jira ticket card (full width below) -->
+      <div id="jiraPanel" class="jira-panel hidden">
+        <div class="jira-panel-bar">
+          <span class="jira-ticket-id" id="jiraTicketId"></span>
+          <span class="jira-panel-spacer"></span>
+          <a id="jiraOpenBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">Open in Jira ↗</a>
+          <button id="jiraClearBtn" class="btn btn-ghost btn-sm hidden" style="color:var(--text-3);" title="Remove link">✕</button>
+        </div>
+        <div id="jiraCard"></div>
+      </div>
+
+      <!-- Results Section (shown after reveal) -->
+      <section class="results-section hidden" id="resultsSection">
+        <div class="results-header">
+          <div class="results-title">Results</div>
+          <div class="results-stats" id="resultsStats"></div>
+        </div>
+        <div class="results-votes" id="resultsVotes"></div>
+        <div id="distributionSection" style="margin-top:16px;"></div>
+        <div id="consensusBanner"></div>
+      </section>
+    </main>
+
+    <!-- Sidebar: Participants + History -->
+    <aside class="room-sidebar">
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" id="tabParticipants" data-tab="pane-participants">
+          Participants <span id="participantCount" style="margin-left:4px;padding:1px 6px;background:var(--elevated);border-radius:100px;font-size:10px;">0</span>
+        </button>
+        <button class="sidebar-tab" id="tabHistory" data-tab="pane-history">
+          History <span id="historyCount" style="margin-left:4px;padding:1px 6px;background:var(--elevated);border-radius:100px;font-size:10px;">0</span>
+        </button>
+      </div>
+
+      <div class="sidebar-pane active" id="pane-participants">
+        <div class="progress-bar-wrap" id="progressWrap">
+          <div class="progress-label" id="progressLabel">0 of 0 voted</div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="participants-list" id="participantsList">
+          <div class="sidebar-waiting">Waiting for participants…</div>
+        </div>
+      </div>
+
+      <div class="sidebar-pane" id="pane-history">
+        <div class="history-list" id="historyList">
+          <div class="history-empty">No rounds completed yet.</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Poll creation modal -->
+<div class="poll-modal-overlay" id="pollModal">
+  <div class="poll-modal-card">
+    <div class="poll-modal-title">📊 Create Poll</div>
+    <div class="field">
+      <label class="label" for="pollQuestion">Question</label>
+      <input class="input" id="pollQuestion" type="text" placeholder="e.g. Are we ready to start the sprint?" maxlength="200" />
+    </div>
+    <div class="field">
+      <label class="label">Answer type</label>
+      <div class="poll-type-toggle">
+        <button class="poll-type-btn active" id="pollTypeSingle" onclick="setPollType('single')">Single answer</button>
+        <button class="poll-type-btn" id="pollTypeMulti" onclick="setPollType('multi')">Multiple answers</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="label">Options</label>
+      <div class="poll-options-list" id="pollOptionsList">
+        <div class="poll-option-input-row"><input class="input" type="text" placeholder="Option 1" maxlength="100" /><button class="poll-option-remove" title="Remove">&#215;</button></div>
+        <div class="poll-option-input-row"><input class="input" type="text" placeholder="Option 2" maxlength="100" /><button class="poll-option-remove" title="Remove">&#215;</button></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="pollAddOptionBtn" style="margin-top:8px;align-self:flex-start;">+ Add option</button>
+    </div>
+    <div class="poll-reuse-row" id="pollReuseRow" style="display:none;">
+      <span class="poll-reuse-label">Last poll: <em id="pollReuseLabel"></em></span>
+      <button class="btn btn-ghost btn-sm" id="pollReuseBtn">Re-use</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="pollCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="pollLaunchBtn">Launch Poll</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MODAL: Confirm leave
+═════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="leaveModal">
+  <div class="modal-card">
+    <div class="modal-title" id="leaveModalTitle">Leave session?</div>
+    <div class="modal-sub" id="leaveModalSub">You will be removed from the room. You can rejoin with the same room code.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="leaveCancelBtn">Stay</button>
+      <button class="btn btn-danger" id="leaveConfirmBtn">Leave</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MODAL: Transfer host
+═════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="transferModal">
+  <div class="modal-card">
+    <div class="modal-title">Transfer host</div>
+    <div class="modal-sub">Choose a participant to become the new facilitator. You will remain in the session as a regular voter.</div>
+    <div class="transfer-list" id="transferList"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="transferCancelBtn">Cancel</button>
+      <button class="btn btn-ghost hidden" id="transferOnlyBtn" disabled>Transfer Host</button>
+      <button class="btn btn-primary" id="transferConfirmBtn" disabled>Transfer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MODAL: Update Jira story points
+═════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="jiraPointsModal">
+  <div class="modal-card">
+    <div class="modal-title">Update Jira story points</div>
+    <div class="modal-sub" id="jiraPointsModalSub">Pick a point value to write to the linked Jira ticket.</div>
+
+    <div class="jira-points-meta">
+      <div class="jira-points-meta-item">
+        <div class="jira-points-meta-label">Consensus</div>
+        <div class="jira-points-meta-value" id="jiraConsensusMeta">-</div>
+      </div>
+      <div class="jira-points-meta-item">
+        <div class="jira-points-meta-label">Nearest Point</div>
+        <div class="jira-points-meta-value" id="jiraNearestMeta">-</div>
+      </div>
+    </div>
+
+    <div class="field" style="margin-bottom: 6px;">
+      <label class="label" for="jiraPointsInput">Story points</label>
+      <input class="input" id="jiraPointsInput" type="text" inputmode="decimal" placeholder="e.g. 5" maxlength="16" />
+      <div class="error-text hidden" id="jiraPointsErr">Enter a numeric point value.</div>
+    </div>
+
+    <div class="jira-points-actions">
+      <button class="btn btn-ghost btn-sm" id="jiraPointsUseSuggestedBtn">Use suggested</button>
+    </div>
+    <div class="jira-points-hint" id="jiraPointsHint">Suggested point is based on this reveal.</div>
+
+    <div class="modal-actions" style="margin-top: 12px;">
+      <button class="btn btn-ghost" id="jiraPointsCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="jiraPointsUpdateBtn">Update Jira</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     FIREBASE SDKs  (v10 compat — no bundler needed)
+═════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  FIREBASE CONFIGURATION
+//  ──────────────────────────────────────────────────────────
+//  1. Visit https://console.firebase.google.com
+//  2. Create a project → Add Web App → copy the config below
+//  3. Build → Realtime Database → Create database (test mode)
+//  4. Paste your values here, save, and deploy.
+// ════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyDOwUODezfFeLYKXYoCXy09jH6lIV7XYkM",
+  authDomain:        "backlog-refinement-nur.firebaseapp.com",
+  databaseURL:       "https://backlog-refinement-nur-default-rtdb.firebaseio.com/",   // e.g. https://my-project-default-rtdb.firebaseio.com
+  projectId:         "backlog-refinement-nur",
+  storageBucket:     "backlog-refinement-nur.firebasestorage.app",
+  messagingSenderId: "529728179240",
+  appId:             "1:529728179240:web:70f1540b138547a776391d",
+  measurementId:     "G-0QY53R1PVE"
+};
+// ════════════════════════════════════════════════════════════
+
+// ── Scale Presets ────────────────────────────────────────────
+const SCALES = {
+  storypoints: ['1','2','3','5','8','?','☕'],
+  timebox:     ['1-2 hrs','Half day','1 day','2 days','3 days','4 days','5 days','5+ days'],
+  fibonacci:   ['1','2','3','5','8','13','21','34','?','☕'],
+  modified:    ['0','1','2','3','5','8','13','20','40','100','?','☕'],
+  tshirt:      ['XS','S','M','L','XL','XXL','?'],
+  powers2:     ['1','2','4','8','16','32','64','?'],
+};
+
+// ── App State ────────────────────────────────────────────────
+const S = {
+  userId:      null,
+  userName:    null,
+  isMod:       false,
+  isSpectator: false,
+  roomCode:    null,
+  scale:       [],
+  originalScale: [],
+  sessionName: '',
+  status:      'waiting',   // 'waiting' | 'voting' | 'revealed'
+  myVote:      null,
+  participants: {},          // { uid: { name, vote, spectator, online } }
+  storyTitle:  '',
+  round:       0,
+  poll:        null,
+  pollHistory: [],
+  _pollDraft:  null,         // array of indices for multi-select in-progress
+  _pollType:   'single',     // 'single' | 'multi' — modal type selection
+  _dbRef:      null,
+  _listeners:  [],
+  _demoMode:   false,
+  _jiraSuggestedPoint: null,
+};
+
+// ── Helpers ──────────────────────────────────────────────────
+function genId(len=9) {
+  return Array.from({ length: len }, () =>
+    'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]
+  ).join('');
+}
+function genRoomCode() {
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
+  return Array.from({ length: 6 }, () => c[Math.floor(Math.random() * c.length)]).join('');
+}
+function avatarBg(name) { // deterministic colour per name
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return 'av-' + (Math.abs(h) % 8);
+}
+function initials(name) {
+  return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+function colorClass(idx) { return 'color-' + (idx % 7); }
+function numeric(v) { return parseFloat(v); }
+function isNumeric(v) { return !isNaN(parseFloat(v)) && isFinite(v); }
+
+// ── Toast ────────────────────────────────────────────────────
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  const c = document.getElementById('toastContainer');
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+// ── Screen routing ───────────────────────────────────────────
+const SCREENS = ['setup', 'landing', 'create', 'join', 'room'];
+function showScreen(name) {
+  SCREENS.forEach(s => {
+    const el = document.getElementById('screen-' + s);
+    if (el) el.classList.toggle('hidden', s !== name);
+  });
+}
+
+// ── Firebase init / demo mode ───────────────────────────────
+let db = null;
+function isFirebaseConfigured() {
+  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL;
+}
+
+function initFirebase() {
+  if (!isFirebaseConfigured()) return false;
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    return true;
+  } catch(e) {
+    console.error('Firebase init failed:', e);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DEMO MODE  (no Firebase — BroadcastChannel for same browser
+//  This lets the host demo the tool on one machine)
+// ═══════════════════════════════════════════════════════════
+let _demoStore = {};
+let _demoChannel = null;
+const DEMO_ROOM = 'DEMO01';
+
+function demoListen(path, cb) {
+  // initial call
+  cb(getPath(_demoStore, path));
+  // listen for changes
+  const handler = e => {
+    const payload = e.data;
+    if (payload && payload.type === 'update' && payload.path.startsWith(path.split('/')[0])) {
+      cb(getPath(_demoStore, path));
+    }
+  };
+  _demoChannel.addEventListener('message', handler);
+  S._listeners.push(() => _demoChannel.removeEventListener('message', handler));
+}
+
+function demoWrite(path, value) {
+  setPath(_demoStore, path, value);
+  _demoChannel.postMessage({ type: 'update', path });
+}
+
+function demoSet(path, data) { demoWrite(path, data); }
+
+function getPath(obj, path) {
+  return path.split('/').filter(Boolean).reduce((acc, k) => acc && acc[k], obj);
+}
+function setPath(obj, path, value) {
+  const parts = path.split('/').filter(Boolean);
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (!cur[parts[i]] || typeof cur[parts[i]] !== 'object') cur[parts[i]] = {};
+    cur = cur[parts[i]];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DATABASE ADAPTER  (dispatches to Firebase or Demo)
+// ═══════════════════════════════════════════════════════════
+function dbOn(path, cb) {
+  if (S._demoMode) {
+    demoListen(path, val => cb({ val: () => val, exists: () => val != null }));
+  } else {
+    const ref = db.ref(path);
+    ref.on('value', cb);
+    S._listeners.push(() => ref.off('value', cb));
+  }
+}
+function dbSet(path, data) {
+  if (S._demoMode) { demoSet(path, data); return Promise.resolve(); }
+  return db.ref(path).set(data);
+}
+function dbUpdate(path, data) {
+  if (S._demoMode) {
+    Object.entries(data).forEach(([k,v]) => demoSet(path + '/' + k, v));
+    return Promise.resolve();
+  }
+  return db.ref(path).update(data);
+}
+function dbRemove(path) {
+  if (S._demoMode) { demoSet(path, null); return Promise.resolve(); }
+  return db.ref(path).remove();
+}
+function dbOnce(path) {
+  if (S._demoMode) {
+    return Promise.resolve({ val: () => getPath(_demoStore, path), exists: () => getPath(_demoStore, path) != null });
+  }
+  return db.ref(path).once('value');
+}
+
+// ════════════════════════════════════════════════════════════
+//  SESSION OPERATIONS
+// ════════════════════════════════════════════════════════════
+
+// Create a new session
+async function createSession({ name, sessionName, scale, isSpectator }) {
+  S.userId = genId();
+  S.userName = name;
+  S.isMod = true;
+  S.isSpectator = isSpectator;
+  S.scale = scale;
+  S.sessionName = sessionName || 'Refinement Session';
+  S.roomCode = S._demoMode ? DEMO_ROOM : genRoomCode();
+
+  const sessionData = {
+    config: {
+      name: S.sessionName,
+      scale: JSON.stringify(scale),
+      originalScale: JSON.stringify(scale),
+      autoReveal: true,
+      createdAt: Date.now(),
+    },
+    status: 'waiting',
+    story: { title: '', jiraUrl: '', round: 1 },
+    moderatorId: S.userId,
+  };
+
+  await dbSet('sessions/' + S.roomCode, sessionData);
+
+  // Add self as participant
+  await dbSet('sessions/' + S.roomCode + '/participants/' + S.userId, {
+    name: S.userName,
+    vote: null,
+    spectator: isSpectator,
+    online: true,
+    joinedAt: Date.now(),
+  });
+
+  // Persist host identity so we can rejoin after navigating away
+  try {
+    localStorage.setItem('sp_host_session', JSON.stringify({
+      roomCode:    S.roomCode,
+      userId:      S.userId,
+      userName:    S.userName,
+      sessionName: S.sessionName,
+    }));
+  } catch(e) { /* storage unavailable */ }
+
+  // Set up disconnect cleanup
+  if (!S._demoMode) {
+    // Host disconnecting: only mark offline (session stays alive so team can keep working)
+    db.ref('sessions/' + S.roomCode + '/participants/' + S.userId + '/online').onDisconnect().set(false);
+  }
+
+  enterRoom();
+}
+
+// Join an existing session
+async function joinSession({ roomCode, name, isSpectator }) {
+  const code = roomCode.toUpperCase().trim();
+  let snap;
+  try { snap = await dbOnce('sessions/' + code); } catch(e) {
+    return { error: 'Could not connect to the session. Check your room code.' };
+  }
+  if (!snap.exists()) return { error: 'Room not found. Check your room code.' };
+
+  const data = snap.val();
+  S.userId = genId();
+  S.userName = name;
+  S.isMod = false;
+  S.isSpectator = isSpectator;
+  S.roomCode = code;
+  S.scale = JSON.parse(data.config.scale || '[]');
+  S.originalScale = JSON.parse(data.config.originalScale || data.config.scale || '[]');
+  S.sessionName = data.config.name || 'Refinement Session';
+  S.autoReveal = data.config.autoReveal !== false;
+
+  await dbSet('sessions/' + code + '/participants/' + S.userId, {
+    name: S.userName,
+    vote: null,
+    spectator: isSpectator,
+    online: true,
+    joinedAt: Date.now(),
+  });
+
+  if (!S._demoMode) {
+    db.ref('sessions/' + S.roomCode + '/participants/' + S.userId + '/online').onDisconnect().set(false);
+  }
+
+  enterRoom();
+  return { ok: true };
+}
+
+// ════════════════════════════════════════════════════════════
+//  ROOM — enter & real-time listeners
+// ════════════════════════════════════════════════════════════
+function enterRoom() {
+  // Update URL without reload
+  const url = new URL(window.location.href);
+  url.searchParams.set('room', S.roomCode);
+  window.history.replaceState({}, '', url.toString());
+
+  showScreen('room');
+  renderRoomStatic();
+  subscribeRoom();
+}
+
+function leaveRoom(opts = {}) {
+  const skipTransferCheck = !!opts.skipTransferCheck;
+
+  if (!skipTransferCheck && S.isMod) {
+    const candidates = Object.entries(S.participants)
+      .filter(([uid, p]) => p && uid !== S.userId && p.online === true);
+    if (candidates.length > 0) {
+      toast('Transfer host rights before leaving.', 'error');
+      openTransferModal(true);
+      return;
+    }
+  }
+
+  // Detach all listeners
+  S._listeners.forEach(fn => fn());
+  S._listeners = [];
+
+  if (S.roomCode && S.userId) {
+    if (S.isMod) {
+      // Host leaves: preserve the session (history, polls, config) but clear moderatorId
+      // so anyone can claim host on rejoin. Remove own participant entry.
+      dbUpdate('sessions/' + S.roomCode, { moderatorId: null }).catch(() => {});
+      dbRemove('sessions/' + S.roomCode + '/participants/' + S.userId).catch(() => {});
+      // Cancel the onDisconnect set we registered
+      if (!S._demoMode) {
+        db.ref('sessions/' + S.roomCode + '/participants/' + S.userId + '/online')
+          .onDisconnect().cancel();
+      }
+    } else {
+      dbRemove('sessions/' + S.roomCode + '/participants/' + S.userId).catch(() => {});
+    }
+  }
+
+  S.roomCode = null; S.userId = null; S.userName = null;
+  S.isMod = false; S.myVote = null; S.participants = {};
+  S.scale = []; S.status = 'waiting'; S.storyTitle = '';
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete('room');
+  window.history.replaceState({}, '', url.toString());
+
+  showScreen('landing');
+}
+
+function subscribeRoom() {
+  const base = 'sessions/' + S.roomCode;
+
+  // Listen to the whole session (status, story, participants)
+  dbOn(base, snap => {
+    const data = snap.val();
+    if (!data) { toast('Session ended.', 'error'); leaveRoom({ skipTransferCheck: true }); return; }
+    handleSessionUpdate(data);
+  });
+}
+
+function handleSessionUpdate(data) {
+  const prevStatus = S.status;
+  S.status      = data.status || 'waiting';
+  S.storyTitle  = (data.story && data.story.title) || '';
+  S.jiraUrl     = (data.story && data.story.jiraUrl) || '';
+  S.round       = (data.story && data.story.round) || 1;
+  S.autoReveal  = !data.config || data.config.autoReveal !== false;
+  // Sync scale from Firebase (allows host to change it mid-session)
+  if (data.config && data.config.scale) {
+    const parsedScale = JSON.parse(data.config.scale || '[]');
+    if (parsedScale.length) S.scale = parsedScale;
+  }
+  if (data.config && data.config.originalScale && !S.originalScale.length) {
+    S.originalScale = JSON.parse(data.config.originalScale || '[]');
+  }
+  S.participants = data.participants || {};
+  S.poll         = data.poll || null;
+
+  // Build sorted history array from Firebase
+  const rawHistory = data.history || {};
+  S.history = Object.entries(rawHistory)
+    .map(([id, h]) => ({ id, ...h }))
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+  // Build sorted poll history array from Firebase
+  const rawPollHistory = data.pollHistory || {};
+  S.pollHistory = Object.entries(rawPollHistory)
+    .map(([id, h]) => ({ id, ...h }))
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+  // Sync moderator status — works for both promotion AND demotion (e.g. after transfer)
+  S.isMod = data.moderatorId === S.userId;
+
+  // Sync our own vote from state
+  const me = S.participants[S.userId];
+  S.myVote = me ? (me.vote || null) : null;
+
+  // Detect if we were removed by the host
+  if (!S.isMod && !me) {
+    toast('You were removed from the session.', 'error');
+    leaveRoom();
+    return;
+  }
+
+  // Reset auto-reveal trigger when a fresh voting round begins
+  if (S.status === 'voting' && prevStatus !== 'voting') {
+    S._autoRevealTriggered = false;
+  }
+
+  renderRoom();
+
+  if (prevStatus !== 'revealed' && S.status === 'revealed') {
+    toast('Votes revealed!', 'success');
+  }
+
+  // Auto-reveal check (mod only)
+  if (S.isMod && S.autoReveal && S.status === 'voting') {
+    checkAutoReveal();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  ROOM RENDER
+// ════════════════════════════════════════════════════════════
+function renderRoomStatic() {
+  document.getElementById('roomSessionName').textContent = S.sessionName;
+  document.getElementById('roomCodeDisplay').textContent = S.roomCode;
+
+  // Populate and show the "Session Scale" option in the mod dropdown
+  const sel = document.getElementById('modScaleSelect');
+  let sessionOpt = sel.querySelector('option[value="__session"]');
+  if (!sessionOpt) {
+    sessionOpt = document.createElement('option');
+    sessionOpt.value = '__session';
+    sel.insertBefore(sessionOpt, sel.firstChild);
+  }
+  const label = S.originalScale.length ? 'Session (' + S.originalScale.join(', ') + ')' : 'Session Scale';
+  sessionOpt.textContent = label;
+
+  // Mod bar visibility
+  document.getElementById('modBar').classList.toggle('hidden', !S.isMod);
+}
+
+function renderRoom() {
+  // Keep modBar visibility in sync — isMod can change (e.g. after host transfer)
+  document.getElementById('modBar').classList.toggle('hidden', !S.isMod);
+  renderStatus();
+  renderStory();
+  renderVotingCards();
+  renderParticipants();
+  renderModControls();
+  renderResults();
+  renderHistory();
+  renderPoll();
+}
+
+function renderStatus() {
+  const chip  = document.getElementById('roomStatusChip');
+  const label = document.getElementById('roomStatusText');
+  chip.className = 'status-chip ' + S.status;
+  const labels = { waiting: 'Waiting', voting: 'Voting', revealed: 'Votes revealed' };
+  label.textContent = labels[S.status] || S.status;
+}
+
+function renderStory() {
+  const input    = document.getElementById('storyTitleInput');
+  const jiraRow  = document.getElementById('jiraUrlRow');
+  const jiraPanel = document.getElementById('jiraPanel');
+  const jiraInput = document.getElementById('jiraUrlInput');
+
+  // Editable only by mod when in waiting state
+  const editable = S.isMod && S.status === 'waiting';
+  input.readOnly = !editable;
+  input.placeholder = editable
+    ? 'Enter story title or ticket ID (e.g. PROJ-123)…'
+    : (S.storyTitle ? '' : 'Waiting for facilitator to set the story…');
+
+  // Only update value when input is not focused (don’t disrupt typing)
+  if (document.activeElement !== input) {
+    input.value = S.storyTitle;
+  }
+
+  // Jira URL row: visible for mod when waiting (but not when a poll is active)
+  jiraRow.classList.toggle('hidden', !editable || !!(S.poll && S.poll.active));
+  if (document.activeElement !== jiraInput) {
+    jiraInput.value = S.jiraUrl;
+  }
+
+  // Jira panel: visible when a URL is stored AND not in revealed state AND no active poll
+  const safeUrl = (S.jiraUrl && /^https?:\/\//i.test(S.jiraUrl)) ? S.jiraUrl : '';
+  const isRevealed = S.status === 'revealed';
+  const pollActive = !!(S.poll && S.poll.active);
+  if (safeUrl && !isRevealed && !pollActive) {
+    jiraPanel.classList.remove('hidden');
+    const ticketId = extractJiraTicketId(safeUrl);
+    document.getElementById('jiraTicketId').textContent = ticketId || 'Jira Ticket';
+    document.getElementById('jiraOpenBtn').href = safeUrl;
+    document.getElementById('jiraClearBtn').classList.toggle('hidden', !editable);
+    syncJiraPanel(safeUrl);
+  } else {
+    jiraPanel.classList.add('hidden');
+    syncJiraPanel('');
+  }
+}
+
+function renderVotingCards() {
+  const section   = document.getElementById('voteSection');
+  const grid      = document.getElementById('voteCardsGrid');
+  const badge     = document.getElementById('youVotedBadge');
+  const lbl       = document.getElementById('voteSectionLabel');
+  const results   = document.getElementById('resultsSection');
+
+  const canVote   = !S.isSpectator && S.status === 'voting';
+  const isRevealed = S.status === 'revealed';
+
+  // Hide voting UI entirely when a poll is active
+  if (S.poll && S.poll.active) {
+    section.classList.add('hidden');
+    results.classList.add('hidden');
+    return;
+  }
+
+  section.classList.toggle('hidden', isRevealed);
+  results.classList.toggle('hidden', !isRevealed);
+
+  if (S.isSpectator) {
+    lbl.textContent = 'Spectator mode — observing';
+    grid.innerHTML = '';
+    badge.classList.add('hidden');
+    return;
+  }
+
+  lbl.textContent = S.status === 'waiting' ? 'Waiting for facilitator to start…' : 'Cast your vote';
+  badge.classList.toggle('hidden', !S.myVote);
+
+  grid.innerHTML = '';
+  S.scale.forEach(val => {
+    const btn = document.createElement('button');
+    btn.className = 'vote-card' + (S.myVote === val ? ' selected' : '') + (!canVote ? ' disabled' : '');
+    btn.textContent = val;
+    btn.disabled = !canVote;
+    btn.addEventListener('click', () => castVote(val));
+    grid.appendChild(btn);
+  });
+}
+
+function renderParticipants() {
+  const list  = document.getElementById('participantsList');
+  const count = document.getElementById('participantCount');
+
+  const entries = Object.entries(S.participants).filter(([,p]) => p && p.online !== false);
+  const voters  = entries.filter(([,p]) => !p.spectator);
+  const voted   = voters.filter(([,p]) => p.vote != null);
+
+  count.textContent = entries.length;
+
+  // Progress bar
+  const pct = voters.length ? Math.round(voted.length / voters.length * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent =
+    voters.length ? `${voted.length} of ${voters.length} voted` : 'No voters yet';
+
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="sidebar-waiting">Waiting for participants…</div>';
+    return;
+  }
+
+  // Sort: mod first, then by joinedAt
+  entries.sort(([,a],[,b]) => {
+    if ((a.joined === 'mod') !== (b.joined === 'mod')) return a.joined === 'mod' ? -1 : 1;
+    return (a.joinedAt || 0) - (b.joinedAt || 0);
+  });
+
+  list.innerHTML = '';
+  entries.forEach(([uid, p]) => {
+    const isMe  = uid === S.userId;
+    const isMod = uid === S._modId || (S.isMod && isMe);
+    const row   = document.createElement('div');
+    row.className = 'participant-row';
+
+    const nameClass = isMe ? 'participant-name participant-you' :
+                     isMod ? 'participant-name participant-mod' : 'participant-name';
+
+    let voteEl = '';
+    if (S.status === 'revealed') {
+      if (p.spectator) {
+        voteEl = '<span class="vote-status no-vote-text">Spectator</span>';
+      } else {
+        const v = p.vote || '—';
+        voteEl = `<span class="vote-status revealed-vote">${escHtml(v)}</span>`;
+      }
+    } else {
+      if (p.spectator) {
+        voteEl = '<span class="vote-status no-vote-text">👁</span>';
+      } else if (p.vote != null) {
+        voteEl = '<span class="vote-status voted-check">✓</span>';
+      } else {
+        voteEl = '<span class="vote-status"><span class="not-voted"></span></span>';
+      }
+    }
+
+    const roleText = (isMod ? 'Facilitator' : '') + (p.spectator ? (isMod ? ' · ' : '') + 'Spectator' : '');
+
+    row.innerHTML = `
+      <div class="participant-avatar ${avatarBg(p.name || '')}">
+        ${escHtml(initials(p.name || '?'))}
+      </div>
+      <div class="participant-info">
+        <div class="${nameClass}">${escHtml(p.name || 'Unknown')}${isMe ? ' (you)' : ''}</div>
+        ${roleText ? `<div class="participant-role">${roleText}</div>` : ''}
+      </div>
+      ${voteEl}
+    `;
+    if (S.isMod && !isMe) {
+      const rmBtn = document.createElement('button');
+      rmBtn.className = 'participant-remove-btn';
+      rmBtn.title = 'Remove participant';
+      rmBtn.textContent = '×';
+      rmBtn.addEventListener('click', () => removeParticipant(uid, p.name || 'this participant'));
+      row.appendChild(rmBtn);
+    }
+    list.appendChild(row);
+  });
+}
+
+function renderResults() {
+  if (S.status !== 'revealed') return;
+
+  const entries = Object.entries(S.participants).filter(([,p]) => p && !p.spectator && p.online !== false);
+  const votesSection = document.getElementById('resultsVotes');
+  const statsEl = document.getElementById('resultsStats');
+  const distSection = document.getElementById('distributionSection');
+  const bannerSection = document.getElementById('consensusBanner');
+
+  // Vote cards
+  votesSection.innerHTML = '';
+  const colourMap = {};
+  let colIdx = 0;
+  entries.forEach(([uid, p]) => {
+    const vote = p.vote || '—';
+    if (!colourMap[vote]) colourMap[vote] = colorClass(colIdx++);
+    const isMe = uid === S.userId;
+    const div = document.createElement('div');
+    div.className = 'result-vote-card';
+    div.style.animationDelay = (colIdx * 0.05) + 's';
+    div.innerHTML = `
+      <div class="result-card-chip ${colourMap[vote]}">${escHtml(vote)}</div>
+      <div class="result-name ${isMe ? 'result-you' : ''}">${escHtml(p.name || 'Unknown')}${isMe ? ' (you)' : ''}</div>
+    `;
+    votesSection.appendChild(div);
+  });
+
+  // Stats
+  const numericVotes = entries.map(([,p]) => p.vote).filter(v => v && isNumeric(v)).map(numeric);
+  const allSame = entries.length > 0 && entries.every(([,p]) => p.vote === entries[0][1].vote);
+
+  statsEl.innerHTML = '';
+  if (numericVotes.length > 0) {
+    const avg = numericVotes.reduce((a,b) => a+b, 0) / numericVotes.length;
+    const nearest = findNearestScale(avg);
+    const avgDiv = document.createElement('div');
+    avgDiv.className = 'stat';
+    avgDiv.innerHTML = `<div class="stat-value">${avg.toFixed(1)}</div><div class="stat-label">Average</div>`;
+    statsEl.appendChild(avgDiv);
+    if (nearest) {
+      const nDiv = document.createElement('div');
+      nDiv.className = 'stat';
+      nDiv.innerHTML = `<div class="stat-value">${escHtml(nearest)}</div><div class="stat-label">Nearest point</div>`;
+      statsEl.appendChild(nDiv);
+    }
+  }
+
+  const uniqVotes = [...new Set(entries.map(([,p]) => p.vote).filter(Boolean))].length;
+  const consDiv = document.createElement('div');
+  consDiv.className = 'stat';
+  consDiv.innerHTML = `
+    <div class="stat-value ${allSame ? 'consensus' : 'no-consensus'}">${allSame ? '✓' : uniqVotes}</div>
+    <div class="stat-label">${allSame ? 'Consensus!' : 'Unique votes'}</div>
+  `;
+  statsEl.appendChild(consDiv);
+
+  // Distribution
+  const freq = {};
+  entries.forEach(([,p]) => { if (p.vote) freq[p.vote] = (freq[p.vote] || 0) + 1; });
+  const maxFreq = Math.max(...Object.values(freq), 1);
+  if (Object.keys(freq).length > 1) {
+    const rows = S.scale.filter(v => freq[v]).map(v =>
+      `<div class="dist-row">
+        <span class="dist-label">${escHtml(v)}</span>
+        <div class="dist-track"><div class="dist-fill" style="width:${Math.round(freq[v]/maxFreq*100)}%"></div></div>
+        <span class="dist-count">${freq[v]}</span>
+      </div>`
+    ).join('');
+    distSection.innerHTML = `<div class="distribution-bar">${rows}</div>`;
+  } else { distSection.innerHTML = ''; }
+
+  // Consensus banner
+  if (allSame && entries.length > 0) {
+    const vote = entries[0][1].vote || '—';
+    bannerSection.innerHTML = `
+      <div class="consensus-banner" style="margin-top:16px;">
+        🎉 <span>Team consensus — <strong>${escHtml(vote)} points</strong></span>
+      </div>`;
+  } else if (!allSame && entries.length > 0) {
+    bannerSection.innerHTML = `
+      <div class="no-consensus-banner" style="margin-top:16px;">
+        💬 <span>No consensus yet — consider discussing the outliers.</span>
+      </div>`;
+  } else { bannerSection.innerHTML = ''; }
+}
+
+function renderModControls() {
+  if (!S.isMod) return;
+  const modBar    = document.getElementById('modBar');
+  // Hide entire mod bar while a poll is running — host uses ✕ Close inside the poll panel
+  if (S.poll && S.poll.active) {
+    modBar.classList.add('hidden');
+    return;
+  }
+  modBar.classList.remove('hidden');
+  const startBtn        = document.getElementById('startVotingBtn');
+  const revealBtn       = document.getElementById('revealBtn');
+  const cancelVotingBtn = document.getElementById('cancelVotingBtn');
+  const resetBtn        = document.getElementById('resetBtn');
+  const reEstBtn        = document.getElementById('reEstimateBtn');
+  const updateJiraBtn   = document.getElementById('updateJiraPointsBtn');
+  const arBtn           = document.getElementById('autoRevealBtn');
+  const scaleSelect     = document.getElementById('modScaleSelect');
+
+  startBtn.classList.toggle('hidden',        S.status !== 'waiting');
+  revealBtn.classList.toggle('hidden',       S.status !== 'voting');
+  cancelVotingBtn.classList.toggle('hidden', S.status !== 'voting');
+  resetBtn.classList.toggle('hidden',        S.status !== 'revealed');
+  reEstBtn.classList.toggle('hidden',        S.status !== 'revealed');
+  updateJiraBtn.classList.toggle('hidden',
+    S.status !== 'revealed' || !(S.jiraUrl && extractJiraTicketId(S.jiraUrl) && /^https?:\/\//i.test(S.jiraUrl))
+  );
+  arBtn.classList.toggle('active', S.autoReveal);
+
+  // Sync dropdown to current scale
+  const currentKey = S.originalScale.length && JSON.stringify(S.scale) === JSON.stringify(S.originalScale)
+    ? '__session'
+    : (Object.entries(SCALES).find(([,v]) => JSON.stringify(v) === JSON.stringify(S.scale))?.[0] || '__session');
+  if (scaleSelect.value !== currentKey) scaleSelect.value = currentKey;
+
+  // Disable reveal until at least one person voted
+  const voters = Object.values(S.participants).filter(p => p && !p.spectator && p.online !== false);
+  const voted  = voters.filter(p => p.vote != null).length;
+  revealBtn.disabled = voted === 0;
+}
+
+function findNearestScale(avg) {
+  const nums = S.scale.filter(isNumeric).map(numeric);
+  if (!nums.length) return null;
+  return String(nums.reduce((prev, cur) => Math.abs(cur - avg) < Math.abs(prev - avg) ? cur : prev));
+}
+
+function computePointSuggestion() {
+  const entries = Object.entries(S.participants)
+    .filter(([,p]) => p && !p.spectator && p.online !== false && p.vote != null);
+  if (!entries.length) return null;
+
+  const votes = entries.map(([,p]) => String(p.vote));
+  const consensus = votes.every(v => v === votes[0]);
+  const consensusValue = consensus ? votes[0] : null;
+
+  const numericVotes = votes.filter(isNumeric).map(numeric);
+  const avg = numericVotes.length ? (numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length) : null;
+  const nearest = avg != null ? findNearestScale(avg) : null;
+
+  let suggested = null;
+  if (consensusValue != null && isNumeric(consensusValue)) {
+    suggested = String(numeric(consensusValue));
+  } else if (nearest != null && isNumeric(nearest)) {
+    suggested = String(numeric(nearest));
+  }
+
+  return { consensus, consensusValue, avg, nearest, suggested };
+}
+
+// ════════════════════════════════════════════════════════════
+//  ACTIONS
+// ════════════════════════════════════════════════════════════
+function castVote(value) {
+  if (!S.roomCode || S.status !== 'voting') return;
+  const same = S.myVote === value;
+  const newVote = same ? null : value;
+  S.myVote = newVote;
+  dbSet('sessions/' + S.roomCode + '/participants/' + S.userId + '/vote', newVote).catch(() => {});
+  renderVotingCards();
+  if (newVote) toast('Voted: ' + newVote);
+}
+
+async function startVoting() {
+  await dbUpdate('sessions/' + S.roomCode, { status: 'voting' });
+}
+
+async function cancelVoting() {
+  if (!S.isMod) return;
+  const updates = { status: 'waiting' };
+  Object.keys(S.participants).forEach(uid => {
+    updates['participants/' + uid + '/vote'] = null;
+  });
+  await dbUpdate('sessions/' + S.roomCode, updates);
+  toast('Voting cancelled.');
+}
+
+async function revealVotes() {
+  // Save a history snapshot before revealing
+  const entries = Object.entries(S.participants).filter(([,p]) => p && !p.spectator);
+  const numericVotes = entries.map(([,p]) => p.vote).filter(v => v && isNumeric(v)).map(numeric);
+  const avg = numericVotes.length
+    ? numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length : null;
+  const allSame = entries.length > 0 && entries.every(([,p]) => p.vote === entries[0][1].vote);
+  const finalPoint = allSame && entries.length > 0
+    ? (entries[0][1].vote || null)
+    : (avg != null ? String(findNearestScale(avg) || avg.toFixed(1)) : null);
+  const votesSnapshot = {};
+  entries.forEach(([uid, p]) => {
+    votesSnapshot[uid] = { name: p.name || 'Unknown', vote: p.vote || null };
+  });
+  const histEntry = {
+    story:      S.storyTitle || '(untitled)',
+    jiraUrl:    S.jiraUrl || '',
+    votes:      votesSnapshot,
+    avg:        avg != null ? parseFloat(avg.toFixed(2)) : null,
+    finalPoint: finalPoint,
+    consensus:  allSame,
+    timestamp:  Date.now(),
+    round:      S.round,
+  };
+  const histKey = 'h' + Date.now();
+  await dbSet('sessions/' + S.roomCode + '/history/' + histKey, histEntry);
+  await dbUpdate('sessions/' + S.roomCode, { status: 'revealed' });
+}
+
+async function resetRound() {
+  const updates = {
+    status: 'waiting',
+    'story/title': '',
+    'story/jiraUrl': '',
+    'story/round': (S.round || 1) + 1,
+  };
+  Object.keys(S.participants).forEach(uid => {
+    updates['participants/' + uid + '/vote'] = null;
+  });
+  await dbUpdate('sessions/' + S.roomCode, updates);
+}
+
+async function changeScale(presetKey) {
+  if (!S.roomCode || !S.isMod) return;
+  const newScale = presetKey === '__session' ? S.originalScale : SCALES[presetKey];
+  if (!newScale || !newScale.length) return;
+  // Reset any in-progress votes when scale changes
+  const updates = { 'config/scale': JSON.stringify(newScale) };
+  Object.keys(S.participants).forEach(uid => {
+    updates['participants/' + uid + '/vote'] = null;
+  });
+  if (S.status === 'revealed') updates.status = 'waiting';
+  const label = presetKey === '__session' ? 'Session Scale' : (presetKey.replace('storypoints','Story Points').replace('timebox','Time Box'));
+  await dbUpdate('sessions/' + S.roomCode, updates);
+  toast('Scale changed to ' + label);
+}
+
+async function reEstimate() {
+  // Keep the same story title and Jira URL, just reset votes and go back to waiting
+  const updates = {
+    status: 'waiting',
+    'story/round': (S.round || 1) + 1,
+  };
+  Object.keys(S.participants).forEach(uid => {
+    updates['participants/' + uid + '/vote'] = null;
+  });
+  await dbUpdate('sessions/' + S.roomCode, updates);
+}
+
+async function saveStory(title) {
+  if (!S.roomCode || !S.isMod) return;
+  const t = title.trim();
+  await dbUpdate('sessions/' + S.roomCode + '/story', { title: t });
+}
+
+// ── Poll ──────────────────────────────────────────────────────────────────────
+
+function _pollVoteCount(votes, optionIndex, multiSelect) {
+  // votes is { uid: number } for single, { uid: [numbers] } for multi
+  return Object.values(votes).reduce((n, v) => {
+    if (multiSelect) return n + (Array.isArray(v) && v.includes(optionIndex) ? 1 : 0);
+    return n + (v === optionIndex ? 1 : 0);
+  }, 0);
+}
+
+// Builds the "who voted what" breakdown HTML for closed poll results and history.
+// Pass `participants` (live S.participants) for real-time view, or `nameMap` for history.
+function _buildPollVoterBreakdownHtml(votes, options, multiSelect, participants, nameMap) {
+  const entries = Object.entries(votes || {});
+  if (entries.length === 0) return '';
+  const rows = entries.map(([uid, v]) => {
+    const name = (participants && participants[uid] && participants[uid].name)
+      || (nameMap && nameMap[uid])
+      || uid;
+    let answers = '';
+    if (multiSelect && Array.isArray(v)) {
+      answers = v.map(i => `<span class="poll-voter-answer">${escHtml(options[i] ?? '?')}</span>`).join(' ');
+    } else {
+      answers = `<span class="poll-voter-answer">${escHtml(options[v] ?? '?')}</span>`;
+    }
+    return `<div class="poll-voter-row">
+      <span class="poll-voter-name">${escHtml(name)}</span>
+      ${answers}
+    </div>`;
+  }).join('');
+  return `<div class="poll-voter-breakdown">
+    <div class="poll-voter-breakdown-title">Who voted what</div>
+    <div class="poll-voter-rows">${rows}</div>
+  </div>`;
+}
+
+function renderPoll() {
+  const section = document.getElementById('pollSection');
+  if (!S.poll) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  // ── Closed poll: show final results ──────────────────────────
+  if (!S.poll.active) {
+    const p = S.poll;
+    const multiSelect = !!p.multiSelect;
+    const votes = p.votes || {};
+    const totalVoters = Object.keys(votes).length;
+    const optionCounts = (p.options || []).map((_, i) => _pollVoteCount(votes, i, multiSelect));
+    section.classList.remove('hidden');
+    section.innerHTML = `
+      <div class="poll-header">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+          <span class="poll-badge" style="background:rgba(74,222,128,.12);color:#4ade80;border-color:rgba(74,222,128,.3);">Results</span>
+          <span class="poll-question">${escHtml(p.question)}</span>
+        </div>
+        ${S.isMod ? `<button class="btn btn-ghost btn-sm" id="dismissPollBtn">✕ Dismiss</button>` : ''}
+      </div>
+      <div class="poll-body">
+        ${(p.options || []).map((opt, i) => {
+          const count = optionCounts[i];
+          const pct = totalVoters ? Math.round(count / totalVoters * 100) : 0;
+          return `<div class="poll-option-btn" style="cursor:default;">
+            <div class="poll-option-bar" style="width:0%" data-pct="${pct}"></div>
+            <div class="poll-option-content">
+              <span>${escHtml(opt)}</span>
+              <span class="poll-option-pct" style="opacity:0" data-pct="${pct}">${pct}%</span>
+              <span class="poll-option-count" style="opacity:0">${count}</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="poll-footer">
+        <span>${totalVoters} vote${totalVoters !== 1 ? 's' : ''}</span>
+      </div>
+      ${_buildPollVoterBreakdownHtml(votes, p.options || [], multiSelect, S.participants, null)}`;
+    if (S.isMod) {
+      section.querySelector('#dismissPollBtn')?.addEventListener('click', async () => {
+        await dbSet('sessions/' + S.roomCode + '/poll', null);
+      });
+    }
+    // Animate bars in after paint
+    requestAnimationFrame(() => {
+      section.querySelectorAll('.poll-option-bar[data-pct]').forEach(bar => {
+        bar.style.width = bar.dataset.pct + '%';
+      });
+      section.querySelectorAll('.poll-option-pct, .poll-option-count').forEach(el => {
+        el.style.transition = 'opacity .3s .2s';
+        el.style.opacity = '1';
+      });
+    });
+    return;
+  }
+
+  // ── Active poll ───────────────────────────────────────────────
+  section.classList.remove('hidden');
+  const p = S.poll;
+  const multiSelect = !!p.multiSelect;
+  const votes = p.votes || {};
+  const totalVoters = Object.keys(votes).length;
+  const myVote = votes[S.userId] !== undefined ? votes[S.userId] : null;
+  const hasVoted = myVote !== null;
+  // Draft selection for multi-select before submit
+  if (multiSelect && !hasVoted && !S._pollDraft) S._pollDraft = [];
+  if (hasVoted) S._pollDraft = null;
+  const canVote = !S.isSpectator && !hasVoted;
+  // Results (bars + counts) only shown after poll is closed — keeps voting anonymous
+  const showResults = false;
+
+  // Eligible voters (non-spectators, online)
+  const eligibleVoters = Object.entries(S.participants)
+    .filter(([, p]) => p && !p.spectator && p.online !== false);
+  const eligibleCount = eligibleVoters.length;
+  const allVoted = eligibleCount > 0 && totalVoters >= eligibleCount;
+
+  const optionCounts = (p.options || []).map((_, i) => _pollVoteCount(votes, i, multiSelect));
+
+  const voterWord = `${totalVoters} of ${eligibleCount} voted`;
+
+  let footerRight = '';
+  if (hasVoted) {
+    footerRight = '<span>✓ You voted</span>';
+  } else if (!S.isSpectator) {
+    footerRight = multiSelect
+      ? `<button class="btn btn-primary btn-sm" id="pollSubmitBtn" ${S._pollDraft && S._pollDraft.length ? '' : 'disabled'}>Submit</button>`
+      : '<span>Select an option to vote</span>';
+  }
+
+  // Host voter breakdown: show who voted what and who hasn't voted yet
+  let breakdownHtml = '';
+  if (S.isMod) {
+    const rows = eligibleVoters.map(([uid, participant]) => {
+      const v = votes[uid];
+      const voted = v !== undefined;
+      let answerHtml = '';
+      if (voted) {
+        if (multiSelect && Array.isArray(v)) {
+          answerHtml = v.map(i => `<span class="poll-voter-answer">${escHtml(p.options[i] || '?')}</span>`).join(' ');
+        } else {
+          answerHtml = `<span class="poll-voter-answer">${escHtml(p.options[v] || '?')}</span>`;
+        }
+      } else {
+        answerHtml = '<span class="poll-voter-pending">waiting…</span>';
+      }
+      return `<div class="poll-voter-row">
+        <span class="poll-voter-name">${escHtml(participant.name || uid)}</span>
+        ${answerHtml}
+      </div>`;
+    }).join('');
+    const breakdownOpen = !!S._pollBreakdownOpen;
+    breakdownHtml = `
+      <div class="poll-voter-breakdown">
+        <div class="poll-voter-breakdown-title">
+          Responses
+          <button class="poll-breakdown-toggle" id="pollBreakdownToggle">${breakdownOpen ? '🙈 Hide' : '👁 Show'}</button>
+        </div>
+        <div class="poll-voter-rows${breakdownOpen ? '' : ' hidden-breakdown'}" id="pollVoterRows">
+          ${rows}
+        </div>
+      </div>`;
+  }
+
+  section.innerHTML = `
+    <div class="poll-header">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <span class="poll-badge">Poll${multiSelect ? ' · Multi' : ''}</span>
+        <span class="poll-question">${escHtml(p.question)}</span>
+      </div>
+      ${S.isMod ? `<button class="btn btn-ghost btn-sm" id="closePollBtn">✕ Close</button>` : ''}
+    </div>
+    <div class="poll-body">
+      ${(p.options || []).map((opt, i) => {
+        const count = optionCounts[i];
+        const pct = totalVoters ? Math.round(count / totalVoters * 100) : 0;
+        const isDraft = multiSelect && S._pollDraft && S._pollDraft.includes(i);
+        const isSelected = multiSelect
+          ? (hasVoted && Array.isArray(myVote) && myVote.includes(i))
+          : (myVote === i);
+        const highlighted = isSelected || isDraft;
+        return `<button class="poll-option-btn${highlighted ? ' selected' : ''}"
+          ${!canVote ? 'disabled' : ''}
+          onclick="castPollVote(${i})">
+          ${showResults ? `<div class="poll-option-bar" style="width:${pct}%"></div>` : ''}
+          <div class="poll-option-content">
+            ${multiSelect ? `<div class="poll-option-check"></div>` : ''}
+            <span>${escHtml(opt)}</span>
+            ${showResults ? `<span class="poll-option-pct">${pct}%</span><span class="poll-option-count">${count}</span>` : ''}
+          </div>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="poll-footer">
+      <span class="poll-progress${allVoted ? ' all-voted' : ''}">${allVoted ? '✓ Everyone voted' : voterWord}</span>
+      <span style="flex:1"></span>
+      ${footerRight}
+    </div>
+    ${breakdownHtml}`;
+
+  if (S.isMod) section.querySelector('#closePollBtn')?.addEventListener('click', closePoll);
+  section.querySelector('#pollBreakdownToggle')?.addEventListener('click', () => {
+    S._pollBreakdownOpen = !S._pollBreakdownOpen;
+    renderPoll();
+  });
+  if (multiSelect && !hasVoted) {
+    section.querySelector('#pollSubmitBtn')?.addEventListener('click', submitPollVote);
+  }
+}
+
+function setPollType(type) {
+  S._pollType = type;
+  document.getElementById('pollTypeSingle').classList.toggle('active', type === 'single');
+  document.getElementById('pollTypeMulti').classList.toggle('active', type === 'multi');
+}
+
+function openPollModal() {
+  S._pollType = 'single';
+  setPollType('single');
+  document.getElementById('pollQuestion').value = '';
+  const list = document.getElementById('pollOptionsList');
+  list.innerHTML = `
+    <div class="poll-option-input-row"><input class="input" type="text" placeholder="Option 1" maxlength="100" /><button class="poll-option-remove" onclick="this.closest('.poll-option-input-row').remove()">×</button></div>
+    <div class="poll-option-input-row"><input class="input" type="text" placeholder="Option 2" maxlength="100" /><button class="poll-option-remove" onclick="this.closest('.poll-option-input-row').remove()">×</button></div>`;
+
+  // Show re-use option if there's a previous poll (active or closed)
+  const prevPoll = S.poll;
+  const reuseRow = document.getElementById('pollReuseRow');
+  const reuseLabel = document.getElementById('pollReuseLabel');
+  if (prevPoll && prevPoll.question) {
+    reuseLabel.textContent = prevPoll.question;
+    reuseRow.style.display = 'flex';
+  } else {
+    reuseRow.style.display = 'none';
+  }
+
+  document.getElementById('pollModal').classList.add('open');
+  document.getElementById('pollQuestion').focus();
+}
+
+function applyPollReuse() {
+  const p = S.poll;
+  if (!p || !p.question) return;
+  document.getElementById('pollQuestion').value = p.question;
+  const list = document.getElementById('pollOptionsList');
+  list.innerHTML = (p.options || []).map((opt, idx) =>
+    `<div class="poll-option-input-row"><input class="input" type="text" value="${escHtml(opt)}" maxlength="100" /><button class="poll-option-remove" onclick="this.closest('.poll-option-input-row').remove()">×</button></div>`
+  ).join('');
+  if (p.multiSelect) setPollType('multi');
+}
+
+function closePollModal() {
+  document.getElementById('pollModal').classList.remove('open');
+}
+
+async function launchPoll() {
+  const question = document.getElementById('pollQuestion').value.trim();
+  const optionInputs = document.querySelectorAll('#pollOptionsList input');
+  const options = Array.from(optionInputs).map(i => i.value.trim()).filter(Boolean);
+  if (!question) { toast('Please enter a question.'); return; }
+  if (options.length < 2) { toast('Please add at least 2 options.'); return; }
+  S._pollDraft = null;
+  await dbSet('sessions/' + S.roomCode + '/poll', {
+    question, options, votes: {}, active: true, multiSelect: S._pollType === 'multi', createdAt: Date.now()
+  });
+  closePollModal();
+  toast('Poll launched!');
+}
+
+function castPollVote(optionIndex) {
+  if (!S.roomCode || !S.poll || !S.poll.active) return;
+  const hasVoted = S.poll.votes && S.poll.votes[S.userId] !== undefined;
+  if (hasVoted || S.isSpectator) return;
+
+  if (S.poll.multiSelect) {
+    // Toggle draft selection — don't write to Firebase until submit
+    if (!S._pollDraft) S._pollDraft = [];
+    const idx = S._pollDraft.indexOf(optionIndex);
+    if (idx === -1) S._pollDraft.push(optionIndex);
+    else S._pollDraft.splice(idx, 1);
+    renderPoll();
+  } else {
+    // Single-select: write immediately
+    dbSet('sessions/' + S.roomCode + '/poll/votes/' + S.userId, optionIndex).catch(() => {});
+  }
+}
+
+async function submitPollVote() {
+  if (!S.roomCode || !S.poll || !S.poll.active || !S._pollDraft || !S._pollDraft.length) return;
+  await dbSet('sessions/' + S.roomCode + '/poll/votes/' + S.userId, S._pollDraft.slice());
+  S._pollDraft = null;
+}
+
+async function closePoll() {
+  if (!S.isMod || !S.poll) return;
+  const p = S.poll;
+  // Snapshot participant names so history can display them even after they leave
+  const nameMap = {};
+  Object.entries(S.participants || {}).forEach(([uid, part]) => {
+    if (part && part.name) nameMap[uid] = part.name;
+  });
+  // Save to poll history
+  const histKey = 'ph' + Date.now();
+  await dbSet('sessions/' + S.roomCode + '/pollHistory/' + histKey, {
+    type: 'poll',
+    question: p.question,
+    options:  p.options || [],
+    votes:    p.votes   || {},
+    names:    nameMap,
+    multiSelect: !!p.multiSelect,
+    timestamp: Date.now(),
+  });
+  await dbUpdate('sessions/' + S.roomCode + '/poll', { active: false });
+  toast('Poll closed.');
+}
+
+async function removeParticipant(uid, name) {
+  if (!S.isMod) return;
+  if (!confirm(`Remove "${name}" from the session?`)) return;
+  await dbRemove('sessions/' + S.roomCode + '/participants/' + uid);
+}
+
+async function saveJiraUrl(url) {
+  if (!S.roomCode || !S.isMod) return;
+  const u = url.trim();
+  // Only allow http/https to prevent javascript: injection
+  if (u && !/^https?:\/\//i.test(u)) return;
+  await dbUpdate('sessions/' + S.roomCode + '/story', { jiraUrl: u });
+}
+
+function extractJiraTicketId(url) {
+  if (!url) return '';
+  const m = url.match(/[A-Z][A-Z0-9]*-\d+/);
+  return m ? m[0] : '';
+}
+
+function getJiraDomain(url) {
+  const m = (url || '').match(/^(https?:\/\/[^/]+)/i);
+  return m ? m[1] : '';
+}
+
+const _jiraStoryPointFieldCache = {};
+
+async function resolveJiraStoryPointFieldId(domain) {
+  if (_jiraStoryPointFieldCache[domain]) return _jiraStoryPointFieldCache[domain];
+  if (!_jiraProxyUrl) throw new Error('Jira proxy is not configured.');
+
+  const fieldsApi = domain + '/rest/api/3/field';
+  const proxyTarget = _jiraProxyUrl + '?url=' + encodeURIComponent(fieldsApi);
+  const res = await fetch(proxyTarget, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error('Could not load Jira fields (' + res.status + ').');
+
+  const allFields = await res.json();
+  const candidates = (Array.isArray(allFields) ? allFields : []).filter(f => {
+    const name = String((f && f.name) || '').toLowerCase();
+    const isStoryPoints = name.includes('story point');
+    const isNumber = f && f.schema && f.schema.type === 'number';
+    return isStoryPoints && isNumber;
+  });
+
+  if (!candidates.length) {
+    throw new Error('Story points field not found in Jira.');
+  }
+
+  const preferred = candidates.find(f => /^story points$/i.test((f && f.name) || ''))
+    || candidates.find(f => /^story point estimate$/i.test((f && f.name) || ''))
+    || candidates[0];
+
+  _jiraStoryPointFieldCache[domain] = preferred.id;
+  return preferred.id;
+}
+
+function openJiraPointsModal() {
+  if (!S.isMod || S.status !== 'revealed') return;
+  if (!S.jiraUrl || !extractJiraTicketId(S.jiraUrl)) {
+    toast('Link a Jira ticket first.', 'error');
+    return;
+  }
+
+  const suggestion = computePointSuggestion();
+  S._jiraSuggestedPoint = suggestion ? suggestion.suggested : null;
+
+  document.getElementById('jiraConsensusMeta').textContent = suggestion
+    ? (suggestion.consensus ? (suggestion.consensusValue || '-') : 'No')
+    : '-';
+  document.getElementById('jiraNearestMeta').textContent = suggestion
+    ? (suggestion.nearest != null ? suggestion.nearest : '-')
+    : '-';
+
+  const input = document.getElementById('jiraPointsInput');
+  input.value = suggestion && suggestion.suggested != null ? suggestion.suggested : '';
+
+  const hint = document.getElementById('jiraPointsHint');
+  hint.textContent = suggestion && suggestion.suggested != null
+    ? 'Suggested: ' + suggestion.suggested + ' (you can override this manually).'
+    : 'No numeric suggestion available. Enter a point value manually.';
+
+  const useBtn = document.getElementById('jiraPointsUseSuggestedBtn');
+  useBtn.disabled = !(suggestion && suggestion.suggested != null);
+
+  document.getElementById('jiraPointsErr').classList.add('hidden');
+  document.getElementById('jiraPointsModal').classList.remove('hidden');
+  input.focus();
+  input.select();
+}
+
+function closeJiraPointsModal() {
+  document.getElementById('jiraPointsModal').classList.add('hidden');
+}
+
+async function updateJiraPoints() {
+  const errEl = document.getElementById('jiraPointsErr');
+  errEl.classList.add('hidden');
+
+  const raw = document.getElementById('jiraPointsInput').value.trim();
+  const value = Number(raw);
+  if (!raw || !Number.isFinite(value)) {
+    errEl.textContent = 'Enter a numeric point value.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const domain = getJiraDomain(S.jiraUrl);
+  const ticketId = extractJiraTicketId(S.jiraUrl);
+  if (!domain || !ticketId) {
+    toast('Invalid Jira ticket URL.', 'error');
+    return;
+  }
+
+  const updateBtn = document.getElementById('jiraPointsUpdateBtn');
+  const cancelBtn = document.getElementById('jiraPointsCancelBtn');
+  const prevLabel = updateBtn.textContent;
+  updateBtn.disabled = true;
+  cancelBtn.disabled = true;
+  updateBtn.textContent = 'Updating...';
+
+  try {
+    const fieldId = await resolveJiraStoryPointFieldId(domain);
+    const issueApi = domain + '/rest/api/3/issue/' + ticketId;
+    const proxyTarget = _jiraProxyUrl + '?url=' + encodeURIComponent(issueApi);
+    const payload = { fields: {} };
+    payload.fields[fieldId] = value;
+
+    const res = await fetch(proxyTarget, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const body = await res.json();
+        detail = (body.errorMessages || []).join(' ') || Object.values(body.errors || {}).join(' ');
+      } catch (e) {
+        // Ignore parse errors and keep status-only message
+      }
+      throw new Error('Jira update failed (' + res.status + ')' + (detail ? ': ' + detail : ''));
+    }
+
+    const commentApi = domain + '/rest/api/3/issue/' + ticketId + '/comment';
+    const commentTarget = _jiraProxyUrl + '?url=' + encodeURIComponent(commentApi);
+    const commentText = 'Story Points updated to ' + value + ' from the Estimation App';
+    const commentPayload = {
+      body: {
+        type: 'doc',
+        version: 1,
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: commentText }
+            ]
+          }
+        ]
+      }
+    };
+    const commentRes = await fetch(commentTarget, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(commentPayload),
+    });
+
+    closeJiraPointsModal();
+    if (!commentRes.ok) {
+      toast('Story points updated to ' + value + ', but adding comment failed.', 'error');
+    } else {
+      toast('Jira story points updated to ' + value + '.', 'success');
+    }
+    _jiraCache = { url: null, data: null, error: null, loading: false };
+    syncJiraPanel(S.jiraUrl);
+  } catch (e) {
+    toast(e.message || 'Failed to update Jira story points.', 'error');
+  } finally {
+    updateBtn.disabled = false;
+    cancelBtn.disabled = false;
+    updateBtn.textContent = prevLabel;
+  }
+}
+
+// ── Jira API integration ─────────────────────────────────────────
+let _jiraCache    = { url: null, data: null, error: null, loading: false };
+let _jiraDomain   = '';
+const DEFAULT_JIRA_PROXY = 'https://floral-moon-66a9.nurrali786.workers.dev';
+let _jiraProxyUrl = DEFAULT_JIRA_PROXY;
+
+function loadJiraProxy() {
+  try {
+    const saved = localStorage.getItem('sp_jira_proxy_url');
+    _jiraProxyUrl = (saved || DEFAULT_JIRA_PROXY || '').trim();
+  } catch(e) {
+    _jiraProxyUrl = DEFAULT_JIRA_PROXY;
+  }
+}
+
+function saveJiraProxy(proxyUrl) {
+  _jiraProxyUrl = proxyUrl.trim();
+  try { localStorage.setItem('sp_jira_proxy_url', _jiraProxyUrl); } catch(e) {}
+}
+
+function clearJiraProxy() {
+  _jiraProxyUrl = DEFAULT_JIRA_PROXY;
+  try { localStorage.removeItem('sp_jira_proxy_url'); } catch(e) {}
+  _jiraCache = { url: null, data: null, error: null, loading: false };
+}
+
+function adfToHtml(node) {
+  if (!node) return '';
+
+  function ch(n) { return (n.content || []).map(adfToHtml).join(''); }
+
+  function applyMarks(text, marks) {
+    let out = escHtml(text);
+    (marks || []).reverse().forEach(m => {
+      switch (m.type) {
+        case 'strong':    out = `<strong>${out}</strong>`; break;
+        case 'em':        out = `<em>${out}</em>`; break;
+        case 'underline': out = `<u>${out}</u>`; break;
+        case 'strike':    out = `<s>${out}</s>`; break;
+        case 'code':      out = `<code>${out}</code>`; break;
+        case 'superscript': out = `<sup>${out}</sup>`; break;
+        case 'subscript':   out = `<sub>${out}</sub>`; break;
+        case 'textColor': {
+          const c = m.attrs && m.attrs.color;
+          if (c) out = `<span style="color:${escHtml(c)}">${out}</span>`;
+          break;
+        }
+        case 'link': {
+          const href = m.attrs && m.attrs.href;
+          if (href && /^https?:\/\//i.test(href)) {
+            out = `<a href="${escHtml(href)}" target="_blank" rel="noopener noreferrer">${out}</a>`;
+          }
+          break;
+        }
+      }
+    });
+    return out;
+  }
+
+  switch (node.type) {
+    case 'doc':         return ch(node);
+    case 'text':        return applyMarks(node.text || '', node.marks);
+    case 'hardBreak':   return '<br>';
+    case 'paragraph':   return `<p>${ch(node) || ''}</p>`;
+    case 'heading': {
+      const lv = Math.min(6, Math.max(1, (node.attrs && node.attrs.level) || 1));
+      return `<h${lv}>${ch(node)}</h${lv}>`;
+    }
+    case 'bulletList':  return `<ul>${ch(node)}</ul>`;
+    case 'orderedList': return `<ol>${ch(node)}</ol>`;
+    case 'listItem':    return `<li>${ch(node)}</li>`;
+    case 'blockquote':  return `<blockquote>${ch(node)}</blockquote>`;
+    case 'rule':        return '<hr>';
+    case 'codeBlock': {
+      const lang = node.attrs && node.attrs.language ? ` data-lang="${escHtml(node.attrs.language)}"` : '';
+      return `<pre${lang}><code>${ch(node)}</code></pre>`;
+    }
+    case 'panel': {
+      const pt = (node.attrs && node.attrs.panelType) || 'info';
+      return `<div class="jira-adf-panel jira-adf-panel-${escHtml(pt)}">${ch(node)}</div>`;
+    }
+    case 'expand': {
+      const title = escHtml((node.attrs && node.attrs.title) || 'Details');
+      return `<details><summary>${title}</summary>${ch(node)}</details>`;
+    }
+    case 'mention': {
+      const name = escHtml((node.attrs && (node.attrs.text || node.attrs.displayName)) || '@mention');
+      return `<span class="jira-adf-mention">${name}</span>`;
+    }
+    case 'emoji': {
+      return escHtml((node.attrs && node.attrs.text) || (node.attrs && node.attrs.shortName) || '');
+    }
+    case 'inlineCard': {
+      const u = node.attrs && node.attrs.url;
+      if (!u || !/^https?:\/\//i.test(u)) return '';
+      const label = extractJiraTicketId(u) || u.replace(/^https?:\/\/[^/]+\//, '').slice(0, 40);
+      return `<a class="jira-adf-card-link" href="${escHtml(u)}" target="_blank" rel="noopener">${escHtml(label)}</a>`;
+    }
+    case 'blockCard': {
+      const u = node.attrs && node.attrs.url;
+      if (!u || !/^https?:\/\//i.test(u)) return '';
+      return `<div><a class="jira-adf-card-link" href="${escHtml(u)}" target="_blank" rel="noopener">${escHtml(u)}</a></div>`;
+    }
+    case 'table':       return `<table><tbody>${ch(node)}</tbody></table>`;
+    case 'tableRow':    return `<tr>${ch(node)}</tr>`;
+    case 'tableHeader': return `<th>${ch(node)}</th>`;
+    case 'tableCell':   return `<td>${ch(node)}</td>`;
+    case 'mediaSingle':
+    case 'mediaGroup':
+    case 'media':       return ''; // images shown in attachment gallery below
+    default:            return ch(node);
+  }
+}
+
+async function fetchJiraTicket(url) {
+  if (!_jiraProxyUrl) { renderJiraPanel(url); return; }
+  const domainMatch = url.match(/^(https?:\/\/[^/]+)/i);
+  const ticketId = extractJiraTicketId(url);
+  if (!domainMatch || !ticketId) { renderJiraPanel(url); return; }
+  _jiraDomain = domainMatch[1];
+  const apiUrl = domainMatch[1] + '/rest/api/3/issue/' + ticketId +
+    '?fields=summary,description,status,issuetype,priority,assignee,customfield_10016,attachment';
+  _jiraCache = { url, data: null, error: null, loading: true };
+  renderJiraPanel(url);
+  try {
+    const proxyTarget = _jiraProxyUrl + '?url=' + encodeURIComponent(apiUrl);
+    const res = await fetch(proxyTarget, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) {
+      const msg = (res.status === 401 || res.status === 403)
+        ? 'Access denied — check your Jira credentials in the proxy Worker.'
+        : 'Proxy error: ' + res.status;
+      _jiraCache = { url, data: null, error: msg, loading: false };
+    } else {
+      _jiraCache = { url, data: await res.json(), error: null, loading: false };
+    }
+  } catch(e) {
+    _jiraCache = { url, data: null, error: 'Could not reach the proxy. Is it deployed?', loading: false };
+  }
+  renderJiraPanel(url);
+}
+
+function syncJiraPanel(safeUrl) {
+  if (!safeUrl) { document.getElementById('jiraCard').innerHTML = ''; return; }
+  if (_jiraCache.url !== safeUrl) {
+    _jiraCache = { url: null, data: null, error: null, loading: false };
+    fetchJiraTicket(safeUrl);
+  } else {
+    renderJiraPanel(safeUrl);
+  }
+}
+
+function renderJiraPanel(url) {
+  const card = document.getElementById('jiraCard');
+  if (!card) return;
+
+  if (!_jiraProxyUrl) {
+    card.innerHTML = `
+      <div class="jira-connect-prompt">
+        <div class="jira-connect-title">Connect Jira</div>
+        <div class="jira-connect-hint">
+          Jira blocks direct browser requests (CORS policy).
+          Deploy the included <code style="background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;">jira-proxy.js</code>
+          as a free <a href="https://dash.cloudflare.com" target="_blank" rel="noopener"
+          style="color:var(--accent-l)">Cloudflare Worker</a>, then paste the worker URL below.
+          Your API token lives only in Cloudflare — never in the browser.
+        </div>
+        <div class="jira-connect-fields">
+          <input class="input" id="jiraProxyInput" type="url"
+            placeholder="https://jira-proxy.yourname.workers.dev"
+            style="height:36px;font-size:13px;" />
+        </div>
+        <div class="jira-connect-row">
+          <button class="btn btn-primary btn-sm" id="jiraSaveProxyBtn">Save</button>
+        </div>
+      </div>`;
+    card.querySelector('#jiraSaveProxyBtn').addEventListener('click', () => {
+      const val = card.querySelector('#jiraProxyInput').value.trim();
+      if (!val || !/^https?:\/\//.test(val)) { toast('Enter a valid proxy URL.', 'error'); return; }
+      saveJiraProxy(val);
+      _jiraCache = { url: null, data: null, error: null, loading: false };
+      fetchJiraTicket(url);
+    });
+    return;
+  }
+
+  if (_jiraCache.loading) {
+    card.innerHTML = '<div class="jira-loading">Fetching ticket…</div>';
+    return;
+  }
+
+  if (_jiraCache.error) {
+    card.innerHTML = `
+      <div class="jira-error-msg">
+        <span>⚠ ${escHtml(_jiraCache.error)}</span>
+        <button class="btn btn-ghost btn-sm" id="jiraReconnectBtn">Update credentials</button>
+      </div>`;
+    card.querySelector('#jiraReconnectBtn').addEventListener('click', () => {
+      clearJiraProxy();
+      renderJiraPanel(url);
+    });
+    return;
+  }
+
+  if (!_jiraCache.data) {
+    card.innerHTML = '<div class="jira-loading">Loading…</div>';
+    return;
+  }
+
+  const f          = _jiraCache.data.fields || {};
+  const key        = _jiraCache.data.key || extractJiraTicketId(url);
+  const summary    = f.summary || '(No summary)';
+
+  // Auto-update story title to "KEY - Summary" if mod and in waiting state
+  if (key && summary && S.isMod && S.status === 'waiting') {
+    const autoTitle = key + ' - ' + summary;
+    const titleInput = document.getElementById('storyTitleInput');
+    if (titleInput && titleInput.value !== autoTitle) {
+      titleInput.value = autoTitle;
+      saveStory(autoTitle);
+    }
+  }
+  const status     = (f.status    && f.status.name)        || '';
+  const statusCat  = (f.status    && f.status.statusCategory && f.status.statusCategory.colorName) || '';
+  const issueType  = (f.issuetype && f.issuetype.name)     || '';
+  const priority   = (f.priority  && f.priority.name)      || '';
+  const assignee   = (f.assignee  && f.assignee.displayName) || 'Unassigned';
+  const storyPts   = f.customfield_10016 != null ? f.customfield_10016 : null;
+  const descHtml   = f.description ? adfToHtml(f.description) : '';
+
+  const imageAttachments = (f.attachment || [])
+    .filter(a => a.mimeType && a.mimeType.startsWith('image/'));
+
+  const typeIcon   = /bug/i.test(issueType) ? '🐞'
+                   : /epic/i.test(issueType) ? '⚡'
+                   : /task/i.test(issueType) ? '✅'
+                   : /sub.task/i.test(issueType) ? '🔧' : '📌';
+  const statusColor = /green/.test(statusCat) ? '#4ade80'
+                    : /yellow/.test(statusCat) ? '#fbbf24'
+                    : /blue-grey/.test(statusCat) ? '#94a3b8' : '#6366f1';
+  const prioClass  = /high|critical|blocker/i.test(priority) ? 'jira-badge-priority-high'
+                   : /low|minor/i.test(priority)             ? 'jira-badge-priority-low'
+                   :                                           'jira-badge-priority-medium';
+
+  card.innerHTML = `
+    <div class="jira-card-body">
+      <div class="jira-card-top">
+        <div class="jira-card-type-icon" title="${escHtml(issueType)}">${typeIcon}</div>
+        <div class="jira-card-heading">
+          <div class="jira-card-title-row">
+            ${key ? `<span class="jira-card-key">${escHtml(key)}</span>` : ''}
+            <span class="jira-card-summary">${escHtml(summary)}</span>
+          </div>
+          <div class="jira-card-meta-inline">
+            <span class="jira-meta-inline-item">
+              <span class="jira-status-dot" style="background:${statusColor}"></span>
+              ${escHtml(status)}
+            </span>
+            ${priority ? `<span class="jira-meta-inline-sep">&bull;</span>
+            <span class="jira-meta-inline-item"><span class="jira-badge ${prioClass}">${escHtml(priority)}</span></span>` : ''}
+            ${assignee !== 'Unassigned' ? `<span class="jira-meta-inline-sep">&bull;</span>
+            <span class="jira-meta-inline-item">&#128100; ${escHtml(assignee)}</span>` : ''}
+            ${storyPts != null ? `<span class="jira-meta-inline-sep">&bull;</span>
+            <span class="jira-meta-inline-item" style="font-weight:700;color:var(--accent-l)">&#9733; ${storyPts} pts</span>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+    ${(descHtml || imageAttachments.length) ? `
+    <div class="jira-card-scroll">
+      ${descHtml ? `
+      <div>
+        <div class="jira-card-desc-label">Description</div>
+        <div class="jira-card-desc">${descHtml}</div>
+      </div>` : ''}
+      ${imageAttachments.length ? `
+      <div>
+        <div class="jira-card-desc-label">Images (${imageAttachments.length})</div>
+        <div class="jira-attachments-grid">
+          ${imageAttachments.map(a => {
+            const thumbSrc = _jiraProxyUrl
+              ? `${_jiraProxyUrl}?url=${encodeURIComponent(_jiraDomain + '/rest/api/3/attachment/thumbnail/' + a.id)}`
+              : '';
+            const fullSrc  = _jiraProxyUrl
+              ? `${_jiraProxyUrl}?url=${encodeURIComponent(_jiraDomain + '/rest/api/3/attachment/content/' + a.id)}`
+              : '';
+            return thumbSrc
+              ? `<img src="${escHtml(thumbSrc)}" class="jira-attach-thumb" loading="lazy"
+                  alt="${escHtml(a.filename)}" title="${escHtml(a.filename)}"
+                  onclick="openLightbox('${escHtml(fullSrc)}')"
+                 >`
+              : '';
+          }).join('')}
+        </div>
+      </div>` : ''}
+    </div>` : ''}`;
+}
+
+function copyRoomLink() {
+  const url = new URL(window.location.href);
+  url.searchParams.set('room', S.roomCode);
+  const link = url.toString();
+  navigator.clipboard.writeText(link).then(() => toast('Link copied to clipboard!', 'success'))
+    .catch(() => {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = link; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      toast('Link copied!', 'success');
+    });
+}
+
+// ── Auto-reveal ───────────────────────────────────────────────
+function checkAutoReveal() {
+  if (S._autoRevealTriggered) return;
+  const voters = Object.values(S.participants).filter(p => p && !p.spectator && p.online !== false);
+  if (voters.length === 0) return;
+  const allVoted = voters.every(p => p.vote != null);
+  if (allVoted) {
+    S._autoRevealTriggered = true;
+    toast('All voted — revealing…', 'success');
+    setTimeout(() => revealVotes(), 700);
+  }
+}
+
+async function toggleAutoReveal() {
+  const newVal = !S.autoReveal;
+  S.autoReveal = newVal;
+  await dbUpdate('sessions/' + S.roomCode + '/config', { autoReveal: newVal });
+  toast(newVal ? 'Auto-reveal enabled' : 'Auto-reveal disabled');
+}
+
+// ── History render ────────────────────────────────────────────
+function renderHistory() {
+  const list    = document.getElementById('historyList');
+  const countEl = document.getElementById('historyCount');
+  if (!list) return;
+
+  // Merge voting rounds and poll history, sorted by timestamp newest-first
+  const allItems = [
+    ...S.history.map(h => ({ ...h, _type: 'vote' })),
+    ...(S.pollHistory || []).map(p => ({ ...p, _type: 'poll' })),
+  ].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  if (countEl) countEl.textContent = allItems.length;
+
+  if (allItems.length === 0) {
+    list.innerHTML = '<div class="history-empty">No rounds completed yet.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  allItems.forEach((item, idx) => {
+    const div = document.createElement('div');
+
+    if (item._type === 'poll') {
+      const votes = item.votes || {};
+      const totalVoters = Object.keys(votes).length;
+      const multiSelect = !!item.multiSelect;
+      const timeStr = item.timestamp
+        ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '';
+      const optionBars = (item.options || []).map((opt, i) => {
+        const count = _pollVoteCount(votes, i, multiSelect);
+        const pct = totalVoters ? Math.round(count / totalVoters * 100) : 0;
+        return `<div class="history-poll-opt">
+          <span style="min-width:80px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(opt)}</span>
+          <div class="history-poll-bar-wrap"><div class="history-poll-bar-fill" style="width:${pct}%"></div></div>
+          <span class="history-poll-pct">${pct}%</span>
+        </div>`;
+      }).join('');
+      const actionsBtnHtml = S.isMod
+        ? `<div class="history-item-actions">
+            <button class="history-action-btn" onclick="relaunchPollFromHistory(${idx})">&#8635; Re-poll</button>
+           </div>`
+        : '';
+      div.className = 'history-item poll-item';
+      div.innerHTML = `
+        <div class="history-item-header">
+          <span class="history-poll-badge">Poll${multiSelect ? ' · Multi' : ''}</span>
+          <span class="history-poll-question" title="${escHtml(item.question)}">${escHtml(item.question)}</span>
+          <span style="font-size:11px;color:var(--text-3);flex-shrink:0">${timeStr}</span>
+        </div>
+        <div class="history-poll-results">${optionBars}</div>
+        <div class="history-item-meta"><span>${totalVoters} vote${totalVoters !== 1 ? 's' : ''}</span></div>
+        ${_buildPollVoterBreakdownHtml(votes, item.options || [], multiSelect, null, item.names || {})}
+        ${actionsBtnHtml}`;
+    } else {
+      const votesMap = item.votes || {};
+      const voteEntries = Object.values(votesMap);
+      const pointClass = item.consensus ? 'history-item-point consensus' : 'history-item-point';
+      const pointLabel = item.finalPoint
+        ? escHtml(item.finalPoint)
+        : (item.avg != null ? item.avg.toFixed(1) : '—');
+      const timeStr = item.timestamp
+        ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '';
+      const voterRows = Object.values(votesMap)
+        .map(v => `<div class="poll-voter-row">
+          <span class="poll-voter-name">${escHtml(v.name || '?')}</span>
+          <span class="poll-voter-answer">${escHtml(v.vote || '—')}</span>
+        </div>`).join('');
+      const actionsBtnHtml = S.isMod
+        ? `<div class="history-item-actions">
+            <button class="history-action-btn" onclick="reEstimateFromHistory(${idx})">&#8635; Re-estimate</button>
+           </div>`
+        : '';
+      div.className = 'history-item';
+      div.innerHTML = `
+        <div class="history-item-header">
+          <span class="history-item-story" title="${escHtml(item.story)}">${escHtml(item.story)}</span>
+          <span class="${pointClass}">${pointLabel}</span>
+        </div>
+        <div class="history-item-meta">
+          <span>${voteEntries.length} voter${voteEntries.length !== 1 ? 's' : ''}</span>
+          ${item.consensus ? '<span style="color:var(--green)">✓ Consensus</span>' : ''}
+          ${item.avg != null ? `<span>avg ${item.avg.toFixed(1)}</span>` : ''}
+          <span>${timeStr}</span>
+        </div>
+        ${voterRows ? `<div class="poll-voter-breakdown" style="border-top:1px solid var(--border);margin-top:4px;padding:6px 0 0;">
+          <div class="poll-voter-breakdown-title">Who voted what</div>
+          <div class="poll-voter-rows" style="margin-top:4px;">${voterRows}</div>
+        </div>` : ''}
+        ${actionsBtnHtml}`;
+    }
+    // Store item data on the element for action handlers
+    div._historyItem = item;
+    div._historyIdx  = idx;
+    list.appendChild(div);
+  });
+
+  // Expose merged list for action handlers
+  renderHistory._items = allItems;
+}
+
+// ── Rejoin as host / Transfer host ───────────────────────────────
+
+function checkRejoinBanner() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('sp_host_session') || 'null'); } catch(e) { return; }
+  if (!saved || !saved.roomCode) return;
+
+  const banner = document.getElementById('rejoinBanner');
+  document.getElementById('rejoinBannerTitle').textContent =
+    'Rejoin "' + (saved.sessionName || saved.roomCode) + '"';
+  document.getElementById('rejoinBannerSub').textContent =
+    'Room ' + saved.roomCode + ' · You were the facilitator';
+  banner.classList.remove('hidden');
+}
+
+function dismissRejoin() {
+  try { localStorage.removeItem('sp_host_session'); } catch(e) {}
+  document.getElementById('rejoinBanner').classList.add('hidden');
+}
+
+async function rejoinAsHost() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('sp_host_session') || 'null'); } catch(e) {}
+  if (!saved || !saved.roomCode) { dismissRejoin(); return; }
+
+  // Verify session still exists in Firebase
+  let snap;
+  try { snap = await dbOnce('sessions/' + saved.roomCode); } catch(e) {
+    toast('Could not connect.', 'error'); return;
+  }
+  if (!snap.exists()) {
+    toast('Session no longer exists.', 'error');
+    dismissRejoin();
+    return;
+  }
+
+  // Restore state
+  const data = snap.val();
+  S.userId      = saved.userId;
+  S.userName    = saved.userName;
+  S.roomCode    = saved.roomCode;
+  S.sessionName = saved.sessionName || data.config?.name || 'Refinement Session';
+  S.isMod       = true;
+  S.isSpectator = false;
+  S.scale       = JSON.parse(data.config?.scale || '[]');
+  S.originalScale = JSON.parse(data.config?.originalScale || data.config?.scale || '[]');
+  S.autoReveal  = data.config?.autoReveal !== false;
+
+  // Re-add ourselves as a participant and claim moderator
+  await dbSet('sessions/' + saved.roomCode + '/participants/' + S.userId, {
+    name:      S.userName,
+    vote:      null,
+    spectator: false,
+    online:    true,
+    joinedAt:  Date.now(),
+  });
+  await dbUpdate('sessions/' + saved.roomCode, { moderatorId: S.userId });
+
+  if (!S._demoMode) {
+    db.ref('sessions/' + S.roomCode + '/participants/' + S.userId + '/online')
+      .onDisconnect().set(false);
+  }
+
+  enterRoom();
+  toast('Rejoined as facilitator!', 'success');
+}
+
+// ── Transfer host ─────────────────────────────────────────────────
+
+let _transferTarget = null;
+let _transferLeaveMode = false;
+
+function openTransferModal(leaveMode = false) {
+  if (!S.isMod) return;
+  _transferTarget = null;
+  _transferLeaveMode = !!leaveMode;
+
+  const transferModal = document.getElementById('transferModal');
+  const titleEl = transferModal.querySelector('.modal-title');
+  const subEl = transferModal.querySelector('.modal-sub');
+  const list = document.getElementById('transferList');
+  const confirmBtn = document.getElementById('transferConfirmBtn');
+
+  const transferOnlyBtn = document.getElementById('transferOnlyBtn');
+  titleEl.textContent = leaveMode ? 'Transfer host before leaving' : 'Transfer host';
+  subEl.textContent = leaveMode
+    ? 'Choose a participant to become the new facilitator, then leave the session.'
+    : 'Choose a participant to become the new facilitator. You will remain in the session as a regular voter.';
+  confirmBtn.textContent = leaveMode ? 'Transfer & Leave' : 'Transfer';
+  confirmBtn.disabled = true;
+  transferOnlyBtn.disabled = true;
+  transferOnlyBtn.classList.toggle('hidden', !leaveMode);
+
+  // Build list of all online participants except current facilitator
+  const candidates = Object.entries(S.participants)
+    .filter(([uid, p]) => p && uid !== S.userId && p.online === true);
+
+  if (candidates.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-3);font-size:13px;padding:8px 0;">No other online participants available to transfer host rights.</div>';
+  } else {
+    list.innerHTML = '';
+    candidates.forEach(([uid, p]) => {
+      const opt = document.createElement('div');
+      opt.className = 'transfer-option';
+      opt.innerHTML = `
+        <div class="participant-avatar ${avatarBg(p.name || '')}">${escHtml(initials(p.name || '?'))}</div>
+        <div class="transfer-option-name">${escHtml(p.name || 'Unknown')}</div>
+        <div class="transfer-option-role">${p.spectator ? 'Spectator' : 'Voter'}</div>
+      `;
+      opt.addEventListener('click', () => {
+        list.querySelectorAll('.transfer-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        _transferTarget = uid;
+        confirmBtn.disabled = false;
+        transferOnlyBtn.disabled = false;
+      });
+      list.appendChild(opt);
+    });
+  }
+
+  document.getElementById('transferModal').classList.remove('hidden');
+}
+
+async function confirmTransferHost(skipLeave = false) {
+  if (!_transferTarget || !S.isMod) return;
+  const newHost = S.participants[_transferTarget];
+  if (!newHost) return;
+  const leaveAfterTransfer = _transferLeaveMode && !skipLeave;
+
+  // Write new moderator
+  await dbUpdate('sessions/' + S.roomCode, { moderatorId: _transferTarget });
+
+  // Demote ourselves — update our own localStorage too
+  S.isMod = false;
+  try { localStorage.removeItem('sp_host_session'); } catch(e) {}
+
+  document.getElementById('transferModal').classList.add('hidden');
+  _transferTarget = null;
+  _transferLeaveMode = false;
+  toast('Host transferred to ' + (newHost.name || 'new facilitator') + '.');
+  if (leaveAfterTransfer) {
+    leaveRoom({ skipTransferCheck: true });
+    return;
+  }
+  renderRoom();
+}
+
+// ── History item actions ──────────────────────────────────────────
+
+async function reEstimateFromHistory(idx) {
+  if (!S.isMod) return;
+  const item = renderHistory._items && renderHistory._items[idx];
+  if (!item) return;
+  // Restore story title + Jira URL from the history entry, reset votes, go to waiting
+  const updates = {
+    status: 'waiting',
+    'story/title':   item.story   || '',
+    'story/jiraUrl': item.jiraUrl || '',
+    'story/round':   (S.round || 1) + 1,
+  };
+  Object.keys(S.participants).forEach(uid => {
+    updates['participants/' + uid + '/vote'] = null;
+  });
+  await dbUpdate('sessions/' + S.roomCode, updates);
+  // Switch sidebar back to participants tab so the team can see the new round
+  document.getElementById('tabParticipants')?.click();
+  toast('Re-estimating: ' + (item.story || '(untitled)'));
+}
+
+async function relaunchPollFromHistory(idx) {
+  if (!S.isMod) return;
+  const item = renderHistory._items && renderHistory._items[idx];
+  if (!item) return;
+  // Launch a fresh poll with the same question and options, clear previous votes
+  await dbSet('sessions/' + S.roomCode + '/poll', {
+    question:    item.question,
+    options:     item.options || [],
+    votes:       {},
+    active:      true,
+    multiSelect: !!item.multiSelect,
+    createdAt:   Date.now(),
+  });
+  document.getElementById('tabParticipants')?.click();
+  toast('Poll re-launched: ' + (item.question || ''));
+}
+
+// ── XSS helper ──────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ════════════════════════════════════════════════════════════
+//  SCALE PRESET UI
+// ════════════════════════════════════════════════════════════
+let selectedPreset = 'storypoints';
+
+function getSelectedScale() {
+  if (selectedPreset === 'custom') {
+    const raw = document.getElementById('customScaleInput').value;
+    return raw.split(',').map(v => v.trim()).filter(Boolean);
+  }
+  return SCALES[selectedPreset] || SCALES.storypoints;
+}
+
+function updateScalePreview() {
+  const scale = getSelectedScale();
+  const preview = document.getElementById('scalePreview');
+  preview.innerHTML = scale.map(v =>
+    `<span style="display:inline-flex;align-items:center;justify-content:center;
+      min-width:36px;height:36px;padding:0 6px;border-radius:var(--r);
+      border:1px solid var(--border);background:var(--elevated);
+      font-size:13px;font-weight:600;color:var(--text-2);">${escHtml(v)}</span>`
+  ).join('');
+}
+
+function initScalePresets() {
+  document.querySelectorAll('.scale-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.scale-preset').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedPreset = btn.dataset.scale;
+      const customField = document.getElementById('customScaleField');
+      customField.style.display = selectedPreset === 'custom' ? 'flex' : 'none';
+      customField.style.flexDirection = 'column';
+      customField.style.gap = '6px';
+      updateScalePreview();
+    });
+  });
+
+  document.getElementById('customScaleInput').addEventListener('input', updateScalePreview);
+  updateScalePreview();
+}
+
+// ════════════════════════════════════════════════════════════
+//  EVENT HANDLERS
+// ════════════════════════════════════════════════════════════
+function wireEvents() {
+  // Landing
+  document.getElementById('landingCreateBtn').addEventListener('click', () => showScreen('create'));
+  document.getElementById('landingJoinBtn').addEventListener('click', () => {
+    showScreen('join');
+    // Check URL for room param
+    const urlRoom = new URLSearchParams(window.location.search).get('room');
+    if (urlRoom) {
+      document.getElementById('joinCode').value = urlRoom.toUpperCase();
+      document.getElementById('joinName').focus();
+    }
+  });
+
+  // Create
+  document.getElementById('createBackBtn').addEventListener('click', () => showScreen('landing'));
+  // Enter key on create form inputs
+  ['createName','createSession','customScaleInput'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('createSubmitBtn').click();
+    });
+  });
+  document.getElementById('createSubmitBtn').addEventListener('click', async () => {
+    const name = document.getElementById('createName').value.trim();
+    const session = document.getElementById('createSession').value.trim();
+    const customInput = document.getElementById('customScaleInput').value;
+    const isSpectator = document.getElementById('modSpectate').checked;
+
+    const nameErr = document.getElementById('createNameErr');
+    const customErr = document.getElementById('customScaleErr');
+    nameErr.classList.add('hidden');
+    customErr.classList.add('hidden');
+
+    let valid = true;
+    if (!name) { nameErr.classList.remove('hidden'); valid = false; }
+    if (selectedPreset === 'custom') {
+      const parts = customInput.split(',').map(v => v.trim()).filter(Boolean);
+      if (parts.length < 2) { customErr.classList.remove('hidden'); valid = false; }
+    }
+    if (!valid) return;
+
+    const scale = getSelectedScale();
+    const btn = document.getElementById('createSubmitBtn');
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      await createSession({ name, sessionName: session, scale, isSpectator });
+    } catch(e) {
+      const errEl = document.getElementById('createError');
+      errEl.textContent = 'Failed to create session: ' + e.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Create session →';
+    }
+  });
+
+  // Join
+  document.getElementById('joinBackBtn').addEventListener('click', () => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('room')) url.searchParams.delete('room');
+    window.history.replaceState({}, '', url.toString());
+    showScreen('landing');
+  });
+  document.getElementById('joinCode').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+  });
+  // Enter key on join form inputs
+  ['joinCode','joinName'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('joinSubmitBtn').click();
+    });
+  });
+  document.getElementById('joinSubmitBtn').addEventListener('click', async () => {
+    const code = document.getElementById('joinCode').value.trim();
+    const name = document.getElementById('joinName').value.trim();
+    const isSpectator = document.getElementById('joinSpectate').checked;
+
+    const codeErr = document.getElementById('joinCodeErr');
+    const nameErr = document.getElementById('joinNameErr');
+    codeErr.classList.add('hidden'); nameErr.classList.add('hidden');
+
+    let valid = true;
+    if (code.length !== 6) { codeErr.classList.remove('hidden'); valid = false; }
+    if (!name) { nameErr.classList.remove('hidden'); valid = false; }
+    if (!valid) return;
+
+    const btn = document.getElementById('joinSubmitBtn');
+    btn.disabled = true; btn.textContent = 'Joining…';
+    const result = await joinSession({ roomCode: code, name, isSpectator });
+    btn.disabled = false; btn.textContent = 'Join session →';
+    if (result && result.error) {
+      const errEl = document.getElementById('joinError');
+      errEl.textContent = result.error;
+      errEl.style.display = 'block';
+    }
+  });
+
+  // Room: copy link
+  document.getElementById('copyRoomCodeBtn').addEventListener('click', copyRoomLink);
+  document.getElementById('roomLogoBack').addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById('leaveModal').classList.remove('hidden');
+  });
+
+  // Room: story inline editing (auto-saves with debounce)
+  let storyDebounce = null;
+  document.getElementById('storyTitleInput').addEventListener('input', function() {
+    clearTimeout(storyDebounce);
+    storyDebounce = setTimeout(() => saveStory(this.value), 600);
+  });
+  document.getElementById('storyTitleInput').addEventListener('blur', function() {
+    clearTimeout(storyDebounce);
+    saveStory(this.value);
+  });
+
+  // Jira URL: auto-saves on blur; also auto-fills story title if empty
+  let jiraDebounce = null;
+  document.getElementById('jiraUrlInput').addEventListener('input', function() {
+    clearTimeout(jiraDebounce);
+    // Auto-extract ticket key → pre-fill story title
+    const ticketId = extractJiraTicketId(this.value);
+    const titleInput = document.getElementById('storyTitleInput');
+    if (ticketId && !titleInput.value.trim()) {
+      titleInput.value = ticketId;
+      saveStory(ticketId);
+    }
+    jiraDebounce = setTimeout(() => saveJiraUrl(this.value), 800);
+  });
+  document.getElementById('jiraUrlInput').addEventListener('blur', function() {
+    clearTimeout(jiraDebounce);
+    saveJiraUrl(this.value);
+  });
+  document.getElementById('jiraClearBtn').addEventListener('click', () => {
+    document.getElementById('jiraUrlInput').value = '';
+    saveJiraUrl('');
+  });
+
+  // Auto-reveal toggle
+  document.getElementById('autoRevealBtn').addEventListener('click', toggleAutoReveal);
+
+  // Sidebar tabs
+  document.querySelectorAll('.sidebar-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.sidebar-pane').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Mod controls
+  document.getElementById('startVotingBtn').addEventListener('click', startVoting);
+  document.getElementById('revealBtn').addEventListener('click', revealVotes);
+  document.getElementById('cancelVotingBtn').addEventListener('click', cancelVoting);
+  document.getElementById('resetBtn').addEventListener('click', resetRound);
+  document.getElementById('reEstimateBtn').addEventListener('click', reEstimate);
+  document.getElementById('updateJiraPointsBtn').addEventListener('click', openJiraPointsModal);
+  document.getElementById('modScaleSelect').addEventListener('change', function() {
+    changeScale(this.value);
+  });
+
+  // Poll
+  document.getElementById('createPollBtn').addEventListener('click', openPollModal);
+  document.getElementById('transferHostBtn').addEventListener('click', openTransferModal);
+  document.getElementById('transferOnlyBtn').addEventListener('click', () => confirmTransferHost(true));
+  document.getElementById('transferCancelBtn').addEventListener('click', () => {
+    _transferLeaveMode = false;
+    document.getElementById('transferModal').classList.add('hidden');
+  });
+  document.getElementById('transferConfirmBtn').addEventListener('click', confirmTransferHost);
+  document.getElementById('jiraPointsCancelBtn').addEventListener('click', closeJiraPointsModal);
+  document.getElementById('jiraPointsUpdateBtn').addEventListener('click', updateJiraPoints);
+  document.getElementById('jiraPointsUseSuggestedBtn').addEventListener('click', () => {
+    if (S._jiraSuggestedPoint != null) {
+      document.getElementById('jiraPointsInput').value = S._jiraSuggestedPoint;
+      document.getElementById('jiraPointsErr').classList.add('hidden');
+    }
+  });
+  document.getElementById('jiraPointsModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('jiraPointsModal')) closeJiraPointsModal();
+  });
+  document.getElementById('pollCancelBtn').addEventListener('click', closePollModal);
+  document.getElementById('pollLaunchBtn').addEventListener('click', launchPoll);
+  document.getElementById('pollReuseBtn').addEventListener('click', applyPollReuse);
+  document.getElementById('pollAddOptionBtn').addEventListener('click', () => {
+    const list = document.getElementById('pollOptionsList');
+    const count = list.querySelectorAll('.poll-option-input-row').length + 1;
+    const row = document.createElement('div');
+    row.className = 'poll-option-input-row';
+    row.innerHTML = `<input class="input" type="text" placeholder="Option ${count}" maxlength="100" /><button class="poll-option-remove" onclick="this.closest('.poll-option-input-row').remove()">×</button>`;
+    list.appendChild(row);
+    row.querySelector('input').focus();
+  });
+  document.getElementById('pollQuestion').addEventListener('keydown', e => {
+    if (e.key === 'Enter') launchPoll();
+  });
+  document.getElementById('pollModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('pollModal')) closePollModal();
+  });
+
+  // Leave modal
+  document.getElementById('leaveRoomBtn').addEventListener('click', () => {
+    const title   = document.getElementById('leaveModalTitle');
+    const sub     = document.getElementById('leaveModalSub');
+    const confirm = document.getElementById('leaveConfirmBtn');
+    if (S.isMod) {
+      title.textContent   = 'Leave session?';
+      sub.textContent     = 'Before leaving, please transfer facilitator rights to someone in the room.';
+      confirm.textContent = 'Leave (keep session alive)';
+    } else {
+      title.textContent   = 'Leave session?';
+      sub.textContent     = 'You will be removed from the room. You can rejoin with the same room code.';
+      confirm.textContent = 'Leave';
+    }
+    document.getElementById('leaveModal').classList.remove('hidden');
+  });
+  document.getElementById('leaveCancelBtn').addEventListener('click', () => {
+    document.getElementById('leaveModal').classList.add('hidden');
+  });
+  document.getElementById('leaveConfirmBtn').addEventListener('click', () => {
+    document.getElementById('leaveModal').classList.add('hidden');
+    leaveRoom();
+  });
+
+  document.getElementById('rejoinBtn').addEventListener('click', rejoinAsHost);
+  document.getElementById('rejoinDismissBtn').addEventListener('click', dismissRejoin);
+
+  // Setup demo button
+  document.getElementById('setupDemoBtn').addEventListener('click', () => {
+    S._demoMode = true;
+    _demoChannel = new BroadcastChannel('sprint_poker_demo');
+    showScreen('landing');
+    toast('Demo mode — works in this browser only.');
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  BOOT
+// ════════════════════════════════════════════════════════════
+function boot() {
+  loadJiraProxy();
+  wireEvents();
+  initScalePresets();
+
+  const fbOk = initFirebase();
+  const urlRoom = new URLSearchParams(window.location.search).get('room');
+
+  if (!fbOk) {
+    showScreen('setup');
+    // If there's a room param, pre-fill join after demo mode selected
+    return;
+  }
+
+  showScreen('landing');
+
+  // Show rejoin-as-host banner if a saved host session exists
+  checkRejoinBanner();
+
+  // Auto-navigate to join if ?room= is in URL
+  if (urlRoom) {
+    showScreen('join');
+    document.getElementById('joinCode').value = urlRoom.toUpperCase();
+    document.getElementById('joinName').focus();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+</script>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <img id="lightboxImg" src="" alt="preview" onclick="event.stopPropagation()">
+</div>
+<script>
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightboxImg').src = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+</script>
+</body>
+</html>
