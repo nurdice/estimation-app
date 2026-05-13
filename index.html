@@ -1385,6 +1385,8 @@ const S = {
   _listeners:  [],
   _demoMode:   false,
   _jiraSuggestedPoint: null,
+  _pollAutoCloseTriggered: false,
+  _pollKey: null,
 };
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -1686,6 +1688,7 @@ function subscribeRoom() {
 
 function handleSessionUpdate(data) {
   const prevStatus = S.status;
+  const prevPollKey = S._pollKey;
   S.status      = data.status || 'waiting';
   S.storyTitle  = (data.story && data.story.title) || '';
   S.jiraUrl     = (data.story && data.story.jiraUrl) || '';
@@ -1701,6 +1704,7 @@ function handleSessionUpdate(data) {
   }
   S.participants = data.participants || {};
   S.poll         = data.poll || null;
+  S._pollKey     = S.poll ? `${S.poll.createdAt || 0}|${S.poll.question || ''}` : null;
 
   // Build sorted history array from Firebase
   const rawHistory = data.history || {};
@@ -1733,6 +1737,11 @@ function handleSessionUpdate(data) {
     S._autoRevealTriggered = false;
   }
 
+  // Reset poll auto-close trigger when a new poll starts (or poll is dismissed)
+  if (S._pollKey !== prevPollKey) {
+    S._pollAutoCloseTriggered = false;
+  }
+
   renderRoom();
 
   if (prevStatus !== 'revealed' && S.status === 'revealed') {
@@ -1742,6 +1751,11 @@ function handleSessionUpdate(data) {
   // Auto-reveal check (mod only)
   if (S.isMod && S.autoReveal && S.status === 'voting') {
     checkAutoReveal();
+  }
+
+  // Auto-close poll when everyone has voted (mod only)
+  if (S.isMod && S.poll && S.poll.active) {
+    checkPollAutoClose();
   }
 }
 
@@ -1806,17 +1820,16 @@ function renderStory() {
     input.value = S.storyTitle;
   }
 
-  // Jira URL row: visible for mod when waiting (but not when a poll is active)
-  jiraRow.classList.toggle('hidden', !editable || !!(S.poll && S.poll.active));
+  // Jira URL row: hide whenever a poll exists so poll UI stays focused.
+  jiraRow.classList.toggle('hidden', !editable || !!S.poll);
   if (document.activeElement !== jiraInput) {
     jiraInput.value = S.jiraUrl;
   }
 
-  // Jira panel: visible when a URL is stored AND not in revealed state AND no active poll
+  // Jira panel: visible when a URL is stored AND not in revealed state AND no poll exists.
   const safeUrl = (S.jiraUrl && /^https?:\/\//i.test(S.jiraUrl)) ? S.jiraUrl : '';
   const isRevealed = S.status === 'revealed';
-  const pollActive = !!(S.poll && S.poll.active);
-  if (safeUrl && !isRevealed && !pollActive) {
+  if (safeUrl && !isRevealed && !S.poll) {
     jiraPanel.classList.remove('hidden');
     const ticketId = extractJiraTicketId(safeUrl);
     document.getElementById('jiraTicketId').textContent = ticketId || 'Jira Ticket';
@@ -1839,8 +1852,8 @@ function renderVotingCards() {
   const canVote   = !S.isSpectator && S.status === 'voting';
   const isRevealed = S.status === 'revealed';
 
-  // Hide voting UI entirely when a poll is active
-  if (S.poll && S.poll.active) {
+  // Hide estimation UI entirely whenever a poll exists (active or showing results).
+  if (S.poll) {
     section.classList.add('hidden');
     results.classList.add('hidden');
     return;
@@ -2038,8 +2051,8 @@ function renderResults() {
 function renderModControls() {
   if (!S.isMod) return;
   const modBar    = document.getElementById('modBar');
-  // Hide entire mod bar while a poll is running — host uses ✕ Close inside the poll panel
-  if (S.poll && S.poll.active) {
+  // Hide entire mod bar while a poll exists so poll UI stays isolated from estimation controls.
+  if (S.poll) {
     modBar.classList.add('hidden');
     return;
   }
@@ -3033,6 +3046,27 @@ function checkAutoReveal() {
     toast('All voted — revealing…', 'success');
     setTimeout(() => revealVotes(), 700);
   }
+}
+
+function checkPollAutoClose() {
+  if (S._pollAutoCloseTriggered || !S.poll || !S.poll.active) return;
+
+  const votes = S.poll.votes || {};
+  const eligibleVoters = Object.entries(S.participants)
+    .filter(([, p]) => p && !p.spectator && p.online !== false);
+
+  if (eligibleVoters.length === 0) return;
+
+  const allVoted = eligibleVoters.every(([uid]) => votes[uid] !== undefined);
+  if (!allVoted) return;
+
+  S._pollAutoCloseTriggered = true;
+  toast('Everyone voted — revealing poll results…', 'success');
+  setTimeout(() => {
+    closePoll().catch(() => {
+      S._pollAutoCloseTriggered = false;
+    });
+  }, 400);
 }
 
 async function toggleAutoReveal() {
