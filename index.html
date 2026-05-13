@@ -1330,6 +1330,7 @@
      FIREBASE SDKs  (v10 compat — no bundler needed)
 ═════════════════════════════════════════════════════════ -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
 <script>
@@ -1338,18 +1339,19 @@
 //  ──────────────────────────────────────────────────────────
 //  1. Visit https://console.firebase.google.com
 //  2. Create a project → Add Web App → copy the config below
-//  3. Build → Realtime Database → Create database (test mode)
-//  4. Paste your values here, save, and deploy.
+//  3. Build → Realtime Database → Create database
+//  4. Enable Anonymous sign-in in Authentication
+//  5. Paste your values here, save, and deploy.
 // ════════════════════════════════════════════════════════════
 const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyAH1UHlvfHCeacn9JHv5WNlOY650xYQSAs",
-  authDomain:        "estimation-app-fc4de.firebaseapp.com",
-  databaseURL:       "https://estimation-app-fc4de-default-rtdb.firebaseio.com",
-  projectId:         "estimation-app-fc4de",
-  storageBucket:     "estimation-app-fc4de.firebasestorage.app",
-  messagingSenderId: "857332977829",
-  appId:             "1:857332977829:web:29c3d8cc8f3bf6d989bd4c",
-  measurementId:     "G-H0HF3YDCRP"
+  apiKey:            "__FIREBASE_API_KEY__",
+  authDomain:        "__FIREBASE_AUTH_DOMAIN__",
+  databaseURL:       "__FIREBASE_DATABASE_URL__",
+  projectId:         "__FIREBASE_PROJECT_ID__",
+  storageBucket:     "__FIREBASE_STORAGE_BUCKET__",
+  messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
+  appId:             "__FIREBASE_APP_ID__",
+  measurementId:     "__FIREBASE_MEASUREMENT_ID__"
 };
 // ════════════════════════════════════════════════════════════
 
@@ -1437,10 +1439,11 @@ function isFirebaseConfigured() {
   return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL;
 }
 
-function initFirebase() {
+async function initFirebase() {
   if (!isFirebaseConfigured()) return false;
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
+    await firebase.auth().signInAnonymously();
     db = firebase.database();
     return true;
   } catch(e) {
@@ -3698,12 +3701,12 @@ function wireEvents() {
 // ════════════════════════════════════════════════════════════
 //  BOOT
 // ════════════════════════════════════════════════════════════
-function boot() {
+async function boot() {
   loadJiraProxy();
   wireEvents();
   initScalePresets();
 
-  const fbOk = initFirebase();
+  const fbOk = await initFirebase();
   const urlRoom = new URLSearchParams(window.location.search).get('room');
 
   if (!fbOk) {
