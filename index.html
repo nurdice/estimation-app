@@ -1797,14 +1797,23 @@ function renderRoomStatic() {
 function renderRoom() {
   // Keep modBar visibility in sync — isMod can change (e.g. after host transfer)
   document.getElementById('modBar').classList.toggle('hidden', !S.isMod);
-  renderStatus();
-  renderStory();
-  renderVotingCards();
-  renderParticipants();
-  renderModControls();
-  renderResults();
-  renderHistory();
-  renderPoll();
+  const safeRender = (label, fn) => {
+    try {
+      fn();
+    } catch (err) {
+      console.error('Render failed:', label, err);
+    }
+  };
+
+  safeRender('status', renderStatus);
+  safeRender('story', renderStory);
+  // Render poll early so it is visible even if a later renderer errors out.
+  safeRender('poll', renderPoll);
+  safeRender('voting-cards', renderVotingCards);
+  safeRender('participants', renderParticipants);
+  safeRender('mod-controls', renderModControls);
+  safeRender('results', renderResults);
+  safeRender('history', renderHistory);
 }
 
 function renderStatus() {
