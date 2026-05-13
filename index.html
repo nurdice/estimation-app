@@ -604,7 +604,8 @@
     .jira-card-heading { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
     .jira-card-title-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
     .jira-card-summary { font-size: 14px; font-weight: 700; color: var(--text-1); line-height: 1.4; }
-    .jira-card-key { font-size: 12px; color: var(--text-3); font-family: 'SF Mono','Fira Code',Consolas,monospace; flex-shrink: 0; }
+    .jira-card-key { font-size: 12px; color: var(--text-3); font-family: 'SF Mono','Fira Code',Consolas,monospace; flex-shrink: 0; text-decoration: underline; cursor: pointer; }
+    .jira-assignee-avatar { display: inline-block; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.04); vertical-align: middle; }
     .jira-card-meta-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 0; }
     .jira-meta-inline-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-3); }
     .jira-meta-inline-sep { color: var(--border); }
@@ -2979,14 +2980,17 @@ function renderJiraPanel(url) {
   const issueType  = (f.issuetype && f.issuetype.name)     || '';
   const priority   = (f.priority  && f.priority.name)      || '';
   const assignee   = (f.assignee  && f.assignee.displayName) || 'Unassigned';
+  const assigneeAvatar = (f.assignee && f.assignee.avatarUrls && f.assignee.avatarUrls['24x24']) || '';
   const storyPts   = f.customfield_10016 != null ? f.customfield_10016 : null;
   const descHtml   = f.description ? adfToHtml(f.description) : '';
 
   const imageAttachments = (f.attachment || [])
     .filter(a => a.mimeType && a.mimeType.startsWith('image/'));
 
+  // Icon for issue type
   const typeIcon   = /bug/i.test(issueType) ? '🐞'
                    : /epic/i.test(issueType) ? '⚡'
+                   : /story/i.test(issueType) ? '📖'
                    : /task/i.test(issueType) ? '✅'
                    : /sub.task/i.test(issueType) ? '🔧' : '📌';
   const statusColor = /green/.test(statusCat) ? '#4ade80'
@@ -2996,26 +3000,36 @@ function renderJiraPanel(url) {
                    : /low|minor/i.test(priority)             ? 'jira-badge-priority-low'
                    :                                           'jira-badge-priority-medium';
 
+  // --- UI/UX ENHANCEMENTS ---
+  // 1. Key and summary are clickable links to the Jira ticket
+  const ticketUrl = url;
+  // 2. Avatars for assignee
+  const assigneeHtml = assignee !== 'Unassigned'
+    ? `<span class="jira-meta-inline-item" title="Assignee">
+        ${assigneeAvatar ? `<img src="${escHtml(assigneeAvatar)}" alt="avatar" class="jira-assignee-avatar" style="width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-right:4px;">` : '<span style="font-size:15px;margin-right:4px;">👤</span>'}
+        ${escHtml(assignee)}
+      </span>`
+    : '';
+
   card.innerHTML = `
     <div class="jira-card-body">
       <div class="jira-card-top">
         <div class="jira-card-type-icon" title="${escHtml(issueType)}">${typeIcon}</div>
         <div class="jira-card-heading">
           <div class="jira-card-title-row">
-            ${key ? `<span class="jira-card-key">${escHtml(key)}</span>` : ''}
-            <span class="jira-card-summary">${escHtml(summary)}</span>
+            ${key ? `<a class="jira-card-key" href="${escHtml(ticketUrl)}" target="_blank" rel="noopener noreferrer" title="Open in Jira">${escHtml(key)}</a>` : ''}
+            <a class="jira-card-summary" href="${escHtml(ticketUrl)}" target="_blank" rel="noopener noreferrer" title="Open in Jira">${escHtml(summary)}</a>
           </div>
           <div class="jira-card-meta-inline">
-            <span class="jira-meta-inline-item">
+            <span class="jira-meta-inline-item" title="Status">
               <span class="jira-status-dot" style="background:${statusColor}"></span>
-              ${escHtml(status)}
+              <span class="jira-badge jira-badge-status">${escHtml(status)}</span>
             </span>
             ${priority ? `<span class="jira-meta-inline-sep">&bull;</span>
-            <span class="jira-meta-inline-item"><span class="jira-badge ${prioClass}">${escHtml(priority)}</span></span>` : ''}
-            ${assignee !== 'Unassigned' ? `<span class="jira-meta-inline-sep">&bull;</span>
-            <span class="jira-meta-inline-item">&#128100; ${escHtml(assignee)}</span>` : ''}
+            <span class="jira-meta-inline-item" title="Priority"><span class="jira-badge ${prioClass}">${escHtml(priority)}</span></span>` : ''}
+            ${assigneeHtml ? `<span class="jira-meta-inline-sep">&bull;</span>${assigneeHtml}` : ''}
             ${storyPts != null ? `<span class="jira-meta-inline-sep">&bull;</span>
-            <span class="jira-meta-inline-item" style="font-weight:700;color:var(--accent-l)">&#9733; ${storyPts} pts</span>` : ''}
+            <span class="jira-meta-inline-item" style="font-weight:700;color:var(--accent-l)" title="Story Points">&#9733; ${storyPts} pts</span>` : ''}
           </div>
         </div>
       </div>
@@ -3039,10 +3053,9 @@ function renderJiraPanel(url) {
               ? `${_jiraProxyUrl}?url=${encodeURIComponent(_jiraDomain + '/rest/api/3/attachment/content/' + a.id)}`
               : '';
             return thumbSrc
-              ? `<img src="${escHtml(thumbSrc)}" class="jira-attach-thumb" loading="lazy"
+              ? `<a href="${escHtml(fullSrc)}" target="_blank" rel="noopener noreferrer"><img src="${escHtml(thumbSrc)}" class="jira-attach-thumb" loading="lazy"
                   alt="${escHtml(a.filename)}" title="${escHtml(a.filename)}"
-                  onclick="openLightbox('${escHtml(fullSrc)}')"
-                 >`
+                 ></a>`
               : '';
           }).join('')}
         </div>
