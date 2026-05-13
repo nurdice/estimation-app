@@ -1267,6 +1267,7 @@
     <div class="modal-sub" id="leaveModalSub">You will be removed from the room. You can rejoin with the same room code.</div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="leaveCancelBtn">Stay</button>
+      <button class="btn btn-danger hidden" id="leaveEndBtn">Leave &amp; End Session</button>
       <button class="btn btn-danger" id="leaveConfirmBtn">Leave</button>
     </div>
   </div>
@@ -1631,12 +1632,17 @@ function enterRoom() {
   subscribeRoom();
 }
 
+function getOnlineTransferCandidates() {
+  return Object.entries(S.participants)
+    .filter(([uid, p]) => p && uid !== S.userId && p.online === true);
+}
+
 function leaveRoom(opts = {}) {
   const skipTransferCheck = !!opts.skipTransferCheck;
+  const endSessionForAll = !!opts.endSessionForAll;
 
-  if (!skipTransferCheck && S.isMod) {
-    const candidates = Object.entries(S.participants)
-      .filter(([uid, p]) => p && uid !== S.userId && p.online === true);
+  if (!skipTransferCheck && S.isMod && !endSessionForAll) {
+    const candidates = getOnlineTransferCandidates();
     if (candidates.length > 0) {
       toast('Transfer host rights before leaving.', 'error');
       openTransferModal(true);
@@ -1649,7 +1655,14 @@ function leaveRoom(opts = {}) {
   S._listeners = [];
 
   if (S.roomCode && S.userId) {
-    if (S.isMod) {
+    if (S.isMod && endSessionForAll) {
+      // End session for everyone.
+      dbRemove('sessions/' + S.roomCode).catch(() => {});
+      if (!S._demoMode) {
+        db.ref('sessions/' + S.roomCode + '/participants/' + S.userId + '/online')
+          .onDisconnect().cancel();
+      }
+    } else if (S.isMod) {
       // Host leaves: preserve the session (history, polls, config) but clear moderatorId
       // so anyone can claim host on rejoin. Remove own participant entry.
       dbUpdate('sessions/' + S.roomCode, { moderatorId: null }).catch(() => {});
@@ -2065,6 +2078,7 @@ function renderModControls() {
   const updateJiraBtn   = document.getElementById('updateJiraPointsBtn');
   const arBtn           = document.getElementById('autoRevealBtn');
   const scaleSelect     = document.getElementById('modScaleSelect');
+  const transferHostBtn = document.getElementById('transferHostBtn');
 
   startBtn.classList.toggle('hidden',        S.status !== 'waiting');
   revealBtn.classList.toggle('hidden',       S.status !== 'voting');
@@ -2075,6 +2089,9 @@ function renderModControls() {
     S.status !== 'revealed' || !(S.jiraUrl && extractJiraTicketId(S.jiraUrl) && /^https?:\/\//i.test(S.jiraUrl))
   );
   arBtn.classList.toggle('active', S.autoReveal);
+
+  // Hide transfer-host action when there is nobody eligible to receive host rights.
+  transferHostBtn.classList.toggle('hidden', getOnlineTransferCandidates().length === 0);
 
   // Sync dropdown to current scale
   const currentKey = S.originalScale.length && JSON.stringify(S.scale) === JSON.stringify(S.originalScale)
@@ -3273,8 +3290,7 @@ function openTransferModal(leaveMode = false) {
   transferOnlyBtn.classList.toggle('hidden', !leaveMode);
 
   // Build list of all online participants except current facilitator
-  const candidates = Object.entries(S.participants)
-    .filter(([uid, p]) => p && uid !== S.userId && p.online === true);
+  const candidates = getOnlineTransferCandidates();
 
   if (candidates.length === 0) {
     list.innerHTML = '<div style="color:var(--text-3);font-size:13px;padding:8px 0;">No other online participants available to transfer host rights.</div>';
@@ -3308,8 +3324,15 @@ async function confirmTransferHost(skipLeave = false) {
   if (!newHost) return;
   const leaveAfterTransfer = _transferLeaveMode && !skipLeave;
 
-  // Write new moderator
-  await dbUpdate('sessions/' + S.roomCode, { moderatorId: _transferTarget });
+  // Atomic transfer when leaving: assign new host and remove current host in one write.
+  if (leaveAfterTransfer) {
+    await dbUpdate('sessions/' + S.roomCode, {
+      moderatorId: _transferTarget,
+      ['participants/' + S.userId]: null,
+    });
+  } else {
+    await dbUpdate('sessions/' + S.roomCode, { moderatorId: _transferTarget });
+  }
 
   // Demote ourselves — update our own localStorage too
   S.isMod = false;
@@ -3621,14 +3644,21 @@ function wireEvents() {
     const title   = document.getElementById('leaveModalTitle');
     const sub     = document.getElementById('leaveModalSub');
     const confirm = document.getElementById('leaveConfirmBtn');
+    const endBtn  = document.getElementById('leaveEndBtn');
     if (S.isMod) {
       title.textContent   = 'Leave session?';
-      sub.textContent     = 'Before leaving, please transfer facilitator rights to someone in the room.';
+      if (getOnlineTransferCandidates().length > 0) {
+        sub.textContent = 'You can transfer host rights and leave, or end the session for everyone.';
+      } else {
+        sub.textContent = 'No other online participants are available to transfer host rights.';
+      }
       confirm.textContent = 'Leave (keep session alive)';
+      endBtn.classList.remove('hidden');
     } else {
       title.textContent   = 'Leave session?';
       sub.textContent     = 'You will be removed from the room. You can rejoin with the same room code.';
       confirm.textContent = 'Leave';
+      endBtn.classList.add('hidden');
     }
     document.getElementById('leaveModal').classList.remove('hidden');
   });
@@ -3638,6 +3668,10 @@ function wireEvents() {
   document.getElementById('leaveConfirmBtn').addEventListener('click', () => {
     document.getElementById('leaveModal').classList.add('hidden');
     leaveRoom();
+  });
+  document.getElementById('leaveEndBtn').addEventListener('click', () => {
+    document.getElementById('leaveModal').classList.add('hidden');
+    leaveRoom({ skipTransferCheck: true, endSessionForAll: true });
   });
 
   document.getElementById('rejoinBtn').addEventListener('click', rejoinAsHost);
